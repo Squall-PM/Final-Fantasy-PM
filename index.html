@@ -1240,7 +1240,7 @@ function _updateMenuItemColors(p) {
     const tipo = el.dataset.tipo;
     const checker = hasData[tipo];
     const empty = checker ? !checker() : false;
-    el.style.color = empty ? '#404860' : '';
+    el.style.color = empty ? '#6070a0' : '';
     // Feature 7: stellina viola su Deliverables se tutti done
     if(tipo === 'deliverables') {
       const allTm = (p.deliv_tm||[]).length > 0 && (p.deliv_tm||[]).every(d=>d.done);
@@ -3350,7 +3350,6 @@ function showOutlookBtn(scroll, dz, filePath) {
 
 
 function buildGanttHtml() {
-  // Gantt data from Excel sheet 2026
   const GANTT = [
     {cod:'J.23031', name:'Twafig Sudan',         tm:'2026-03-01', tp:null,         con:'2026-04-15'},
     {cod:'J.25016', name:'CP Mexico',             tm:null,         tp:null,         con:'2026-02-15'},
@@ -3375,21 +3374,21 @@ function buildGanttHtml() {
     {cod:'J.26010', name:'Marsavco Congo',        tm:null,         tp:null,         con:null},
   ];
 
-  // Time range: Oct 2025 → Nov 2026
   const rangeStart = new Date('2025-10-01');
   const rangeEnd   = new Date('2026-11-01');
   const totalDays  = (rangeEnd - rangeStart) / 86400000;
-
   const today = new Date();
   const todayPct = Math.min(1, Math.max(0, (today - rangeStart) / (rangeEnd - rangeStart)));
 
-  const ROW_H   = 22;
-  const LABEL_W = 72;
-  const HDR_H   = 38;
-  const PAD     = 8;
+  const ROW_H   = 26;
+  const LABEL_W = 76;
+  const HDR_H   = 42;
+  const PAD     = 0;
+
+  // Use full scroll area width — detect at render time via JS trick
   const svgW    = 900;
-  const chartW  = svgW - LABEL_W - PAD*2;
-  const svgH    = HDR_H + GANTT.length * ROW_H + PAD*2;
+  const chartW  = svgW - LABEL_W;
+  const svgH    = HDR_H + GANTT.length * ROW_H;
 
   function pct(dateStr) {
     if(!dateStr) return null;
@@ -3397,111 +3396,149 @@ function buildGanttHtml() {
     return Math.min(1, Math.max(0, (d - rangeStart) / (rangeEnd - rangeStart)));
   }
 
-  // Build months header
-  let months = '';
+  const monthNames = ['GEN','FEB','MAR','APR','MAG','GIU','LUG','AGO','SET','OTT','NOV','DIC'];
+
+  // Build month columns with week subdivisions
+  let monthCols = '';
+  let monthLabels = '';
+  let weekLines = '';
+
   let cur = new Date(rangeStart);
   cur.setDate(1);
-  const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
   while(cur < rangeEnd) {
     const mp = (cur - rangeStart) / (rangeEnd - rangeStart);
-    const x = LABEL_W + PAD + mp * chartW;
+    const x1 = LABEL_W + mp * chartW;
     const mn = monthNames[cur.getMonth()];
     const yr = cur.getFullYear() === 2026 ? '' : "'25";
-    months += `<text x="${x.toFixed(1)}" y="14" fill="#6080c0" font-size="9" font-family="VT323,monospace">${mn}${yr}</text>`;
-    months += `<line x1="${x.toFixed(1)}" y1="20" x2="${x.toFixed(1)}" y2="${svgH}" stroke="#1a2a5a" stroke-width="1"/>`;
-    cur.setMonth(cur.getMonth()+1);
+
+    // Next month boundary
+    const nextM = new Date(cur);
+    nextM.setMonth(nextM.getMonth() + 1);
+    const mp2 = Math.min(1, (nextM - rangeStart) / (rangeEnd - rangeStart));
+    const x2 = LABEL_W + mp2 * chartW;
+    const midX = (x1 + x2) / 2;
+    const colW = x2 - x1;
+
+    // Month divider line (strong)
+    monthCols += `<line x1="${x1.toFixed(1)}" y1="0" x2="${x1.toFixed(1)}" y2="${svgH}" stroke="#2a3a7a" stroke-width="1.2"/>`;
+
+    // Month label centered inside the column
+    monthLabels += `<text x="${midX.toFixed(1)}" y="14" fill="#7090d0" font-size="11" font-family="VT323,monospace" text-anchor="middle" letter-spacing="1">${mn}${yr}</text>`;
+
+    // Week subdivisions (4 lines per month, lighter)
+    for(let w = 1; w <= 3; w++) {
+      const wd = new Date(cur);
+      wd.setDate(1 + w * 7);
+      if(wd < nextM && wd < rangeEnd) {
+        const wp = (wd - rangeStart) / (rangeEnd - rangeStart);
+        const wx = LABEL_W + wp * chartW;
+        weekLines += `<line x1="${wx.toFixed(1)}" y1="${HDR_H}" x2="${wx.toFixed(1)}" y2="${svgH}" stroke="#1a2550" stroke-width="0.5" opacity="0.7"/>`;
+      }
+    }
+
+    cur = nextM;
   }
+  // Final right border
+  monthCols += `<line x1="${(LABEL_W + chartW).toFixed(1)}" y1="0" x2="${(LABEL_W + chartW).toFixed(1)}" y2="${svgH}" stroke="#2a3a7a" stroke-width="1.2"/>`;
 
   // Build rows
   let rows = '';
   GANTT.forEach((p, i) => {
     const y = HDR_H + i * ROW_H;
-    const cy = y + ROW_H/2;
-    const bg = i % 2 === 0 ? 'rgba(0,0,60,0.4)' : 'rgba(0,0,30,0.2)';
+    const cy = y + ROW_H / 2;
+
+    // Alternating row backgrounds — more visible
+    const bg = i % 2 === 0
+      ? 'rgba(20,30,100,0.55)'
+      : 'rgba(5,10,50,0.35)';
     rows += `<rect x="0" y="${y}" width="${svgW}" height="${ROW_H}" fill="${bg}"/>`;
 
-    // Label
-    rows += `<text x="${LABEL_W - 4}" y="${cy + 4}" fill="#8090c0" font-size="9" font-family="VT323,monospace" text-anchor="end">${p.cod}</text>`;
+    // Subtle bottom border on each row
+    rows += `<line x1="${LABEL_W}" y1="${y + ROW_H}" x2="${svgW}" y2="${y + ROW_H}" stroke="#1a2550" stroke-width="0.4"/>`;
 
-    // Get project from PROJECTS to check stars (shipped/completed)
+    // Label
+    rows += `<text x="${LABEL_W - 4}" y="${cy + 4}" fill="#a0b0d0" font-size="11" font-family="VT323,monospace" text-anchor="end">${p.cod}</text>`;
+
     const proj = PROJECTS.find(x => x.cod === p.cod);
     const stars = proj ? proj.stars : 0;
     const starsTotal = proj ? proj.stars_total : 2;
     const isCompleted = proj && stars >= starsTotal;
     const isShipped   = proj && stars > 0 && stars < starsTotal;
 
-    // TM bar (produzione): green
-    const tmP = pct(p.tm);
+    const tmP  = pct(p.tm);
     const conP = pct(p.con);
+    const tpP  = pct(p.tp);
+
     if(tmP !== null && conP !== null) {
-      const bx = LABEL_W + PAD + tmP * chartW;
-      const bw = Math.max(2, (conP - tmP) * chartW);
-      const barColor = isCompleted ? '#4a4a6a' : isShipped ? '#2a6a3a' : '#1a4a8a';
-      const barBorder = isCompleted ? '#6a6a9a' : isShipped ? '#30d158' : '#4a8aff';
-      rows += `<rect x="${bx.toFixed(1)}" y="${y+4}" width="${bw.toFixed(1)}" height="${ROW_H-8}" rx="2" fill="${barColor}" stroke="${barBorder}" stroke-width="1"/>`;
+      const bx = LABEL_W + tmP * chartW;
+      const bw = Math.max(3, (conP - tmP) * chartW);
+      const barColor  = isCompleted ? '#3a3a5a' : isShipped ? '#1a5530' : '#0d3a7a';
+      const barBorder = isCompleted ? '#7070a0' : isShipped ? '#30d158' : '#4a8aff';
+      // Bar shadow/glow
+      rows += `<rect x="${bx.toFixed(1)}" y="${(y+5).toFixed(1)}" width="${bw.toFixed(1)}" height="${ROW_H-10}" rx="2" fill="${barColor}" stroke="${barBorder}" stroke-width="1.2" opacity="0.95"/>`;
       // TM dot
-      rows += `<circle cx="${bx.toFixed(1)}" cy="${cy}" r="3" fill="#f8e040"/>`;
+      rows += `<circle cx="${bx.toFixed(1)}" cy="${cy}" r="3.5" fill="#f8e040" stroke="#000" stroke-width="0.5"/>`;
     } else if(conP !== null) {
-      // Only consegna — draw small diamond
-      const cx2 = LABEL_W + PAD + conP * chartW;
-      rows += `<polygon points="${cx2},${y+4} ${cx2+5},${cy} ${cx2},${y+ROW_H-4} ${cx2-5},${cy}" fill="#a04040"/>`;
+      const cx2 = LABEL_W + conP * chartW;
+      rows += `<polygon points="${cx2},${y+5} ${cx2+5},${cy} ${cx2},${y+ROW_H-5} ${cx2-5},${cy}" fill="#a04040" stroke="#ff6060" stroke-width="0.8"/>`;
     }
 
-    // TP dot (if present)
-    const tpP = pct(p.tp);
     if(tpP !== null) {
-      const tx = LABEL_W + PAD + tpP * chartW;
-      rows += `<circle cx="${tx.toFixed(1)}" cy="${cy}" r="3" fill="#ff8040" stroke="#fff" stroke-width="0.5"/>`;
+      const tx = LABEL_W + tpP * chartW;
+      rows += `<circle cx="${tx.toFixed(1)}" cy="${cy}" r="3.5" fill="#ff8040" stroke="#fff" stroke-width="0.8"/>`;
     }
 
-    // Consegna marker (diamond)
     if(conP !== null) {
-      const dx = LABEL_W + PAD + conP * chartW;
-      rows += `<polygon points="${dx},${y+3} ${dx+4},${cy} ${dx},${y+ROW_H-3} ${dx-4},${cy}" fill="${isCompleted ? '#666' : '#f8e040'}" opacity="0.9"/>`;
+      const dx = LABEL_W + conP * chartW;
+      const dc = isCompleted ? '#555577' : '#f8e040';
+      rows += `<polygon points="${dx},${y+4} ${dx+5},${cy} ${dx},${y+ROW_H-4} ${dx-5},${cy}" fill="${dc}" stroke="${isCompleted?'#8888aa':'#c0a800'}" stroke-width="0.8" opacity="0.95"/>`;
     }
 
-    // Name label on bar
+    // Name on bar
     if(tmP !== null && conP !== null) {
-      const bx = LABEL_W + PAD + tmP * chartW;
+      const bx = LABEL_W + tmP * chartW;
       const bw = (conP - tmP) * chartW;
-      if(bw > 40) {
-        const textX = bx + bw/2;
-        rows += `<text x="${textX.toFixed(1)}" y="${cy+4}" fill="#ffffff" font-size="8" font-family="VT323,monospace" text-anchor="middle" opacity="0.9">${p.name}</text>`;
+      if(bw > 44) {
+        rows += `<text x="${(bx + bw/2).toFixed(1)}" y="${(cy+4).toFixed(1)}" fill="#e0eaff" font-size="9" font-family="VT323,monospace" text-anchor="middle" opacity="0.95">${p.name}</text>`;
       }
     }
   });
 
   // Today line
-  const todayX = LABEL_W + PAD + todayPct * chartW;
-  let todayLine = `<line x1="${todayX.toFixed(1)}" y1="${HDR_H}" x2="${todayX.toFixed(1)}" y2="${svgH}" stroke="#ff3040" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.8"/>`;
-  todayLine += `<text x="${todayX.toFixed(1)}" y="${HDR_H-4}" fill="#ff6060" font-size="8" font-family="VT323,monospace" text-anchor="middle">OGGI</text>`;
+  const todayX = LABEL_W + todayPct * chartW;
+  const todayLine = `
+    <line x1="${todayX.toFixed(1)}" y1="${HDR_H}" x2="${todayX.toFixed(1)}" y2="${svgH}" stroke="#ff2040" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.9"/>
+    <text x="${todayX.toFixed(1)}" y="${HDR_H - 6}" fill="#ff5060" font-size="9" font-family="VT323,monospace" text-anchor="middle">OGGI</text>`;
 
   // Legend
+  const legY = svgH - 14;
   const leg = `
-    <rect x="${LABEL_W+PAD}" y="${svgH-16}" width="8" height="8" rx="1" fill="#1a4a8a" stroke="#4a8aff" stroke-width="1"/>
-    <text x="${LABEL_W+PAD+10}" y="${svgH-9}" fill="#8090c0" font-size="8" font-family="VT323,monospace">Production</text>
-    <circle cx="${LABEL_W+PAD+80}" cy="${svgH-12}" r="3" fill="#f8e040"/>
-    <text x="${LABEL_W+PAD+85}" y="${svgH-9}" fill="#8090c0" font-size="8" font-family="VT323,monospace">TM</text>
-    <circle cx="${LABEL_W+PAD+108}" cy="${svgH-12}" r="3" fill="#ff8040"/>
-    <text x="${LABEL_W+PAD+113}" y="${svgH-9}" fill="#8090c0" font-size="8" font-family="VT323,monospace">TP</text>
-    <polygon points="${LABEL_W+PAD+140},${svgH-16} ${LABEL_W+PAD+144},${svgH-12} ${LABEL_W+PAD+140},${svgH-8} ${LABEL_W+PAD+136},${svgH-12}" fill="#f8e040"/>
-    <text x="${LABEL_W+PAD+148}" y="${svgH-9}" fill="#8090c0" font-size="8" font-family="VT323,monospace">Delivery</text>
-  `;
+    <rect x="${LABEL_W+4}" y="${legY-7}" width="10" height="8" rx="1" fill="#0d3a7a" stroke="#4a8aff" stroke-width="1"/>
+    <text x="${LABEL_W+16}" y="${legY}" fill="#7080b0" font-size="9" font-family="VT323,monospace">Production</text>
+    <circle cx="${LABEL_W+88}" cy="${legY-3}" r="3.5" fill="#f8e040"/>
+    <text x="${LABEL_W+94}" y="${legY}" fill="#7080b0" font-size="9" font-family="VT323,monospace">TM</text>
+    <circle cx="${LABEL_W+114}" cy="${legY-3}" r="3.5" fill="#ff8040"/>
+    <text x="${LABEL_W+120}" y="${legY}" fill="#7080b0" font-size="9" font-family="VT323,monospace">TP</text>
+    <polygon points="${LABEL_W+148},${legY-7} ${LABEL_W+153},${legY-3} ${LABEL_W+148},${legY+1} ${LABEL_W+143},${legY-3}" fill="#f8e040"/>
+    <text x="${LABEL_W+157}" y="${legY}" fill="#7080b0" font-size="9" font-family="VT323,monospace">Delivery</text>`;
 
-  const svgHFull = svgH + 20;
-  return `<svg viewBox="0 0 ${svgW} ${svgHFull}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${svgW}px;display:block;">
-    <rect width="${svgW}" height="${svgHFull}" fill="transparent"/>
+  return `<div style="width:100%;height:100%;overflow:auto;">
+  <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:${svgW}px;display:block;height:auto;">
+    <rect width="${svgW}" height="${svgH}" fill="rgba(0,0,20,0.7)"/>
     <!-- Header bg -->
-    <rect x="0" y="0" width="${svgW}" height="${HDR_H}" fill="rgba(0,0,80,0.6)"/>
-    <!-- Title -->
-    <text x="${LABEL_W/2}" y="24" fill="#a0b8ff" font-size="10" font-family="VT323,monospace" text-anchor="middle" letter-spacing="1">PROJECT</text>
-    ${months}
+    <rect x="0" y="0" width="${svgW}" height="${HDR_H}" fill="rgba(0,0,60,0.8)"/>
+    <rect x="0" y="0" width="${LABEL_W}" height="${svgH}" fill="rgba(0,0,40,0.5)"/>
+    <text x="${LABEL_W/2}" y="26" fill="#a0b8ff" font-size="10" font-family="VT323,monospace" text-anchor="middle" letter-spacing="1">PROJECT</text>
+    ${monthCols}
+    ${monthLabels}
+    ${weekLines}
     ${rows}
     ${todayLine}
     ${leg}
-  </svg>`;
+  </svg>
+  </div>`;
 }
-
 
 function loadFfContent(tipo, p) {
   const key = p.cod + '_' + tipo;
@@ -4403,7 +4440,7 @@ function renderProjects(){
       dtxt.textContent='drop mail'; spin.style.display='none';
     });
 
-    // Feature 10: drag ANY file anywhere on the logBox → AI analyzes and proposes where to save
+    // Feature 10: drag ANY file anywhere on the logBox → AI analyzes, shows confirm popup
     logBox.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); logBox.style.outline='1px solid var(--yellow)'; });
     logBox.addEventListener('dragleave', e=>{ if(!logBox.contains(e.relatedTarget)) logBox.style.outline=''; });
     logBox.addEventListener('drop', async e=>{
@@ -4411,42 +4448,63 @@ function renderProjects(){
       const f = e.dataTransfer.files[0]; if(!f) return;
       selectProject(i);
       const p2 = PROJECTS[i];
-      // Check if it's a mail/text file — use existing analyzeMailAndLog
+
+      // Mail/text → analyze + propose section via popup
       if(f.name.toLowerCase().match(/\.(msg|eml|txt)$/)) {
         dtxt.textContent='analyzing…'; spin.style.display='block';
-        const txt = await f.text(); await analyzeMailAndLog(txt, i);
+        const txt = await f.text();
+        // AI decides section for mail too
+        const sizeStr = Math.round(f.size/1024)+'KB';
+        let mailSection = 'item';
+        let mailLogNote = '';
+        try {
+          const memKey = 'ff7pm_routing_' + f.name.split('.').pop().toLowerCase();
+          const mem = localStorage.getItem(memKey);
+          const memData = mem ? JSON.parse(mem) : {};
+          const hint = Object.keys(memData).sort((a,b)=>memData[b]-memData[a])[0] || '';
+          const resp2 = await fetch('https://api.anthropic.com/v1/messages', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:250,
+              messages:[{role:'user',content:`File: "${f.name}" (mail/testo, ${sizeStr}). Progetto: ${p2.cod}. Analizza il nome file e dimmi dove salvarlo. Sezioni disponibili: kom (email/KOM progetto), item (mail generica da loggare), contract (contratti), budget (budget), timeschedule (schedule), images (foto/allegati), mdo (MDO). ${hint?'In passato file simili sono stati salvati in: '+hint+'.':''} Se non sei sicuro usa "unknown". Rispondi SOLO JSON: {"sezione":"kom|item|contract|budget|timeschedule|images|mdo|unknown","log":"nota breve max 50 char","confident":true/false}`}]
+            })
+          });
+          const d2 = await resp2.json();
+          const raw2 = (d2.content?.[0]?.text||'').trim();
+          try { const j2=JSON.parse(raw2); mailSection=j2.sezione||'item'; mailLogNote=j2.log||''; if(!j2.confident) mailSection='unknown'; } catch(_){}
+        } catch(_){}
         dtxt.textContent='drop mail'; spin.style.display='none';
+        // Show confirm popup
+        showRoutingPopup(f, txt, i, mailSection, mailLogNote, true);
         return;
       }
-      // For other files: AI proposes where to save
+
+      // Any other file
       sysLog('Analisi file: ' + f.name.slice(0,30) + '…', '');
+      dtxt.textContent='analyzing…'; spin.style.display='block';
+      let sezione = 'unknown', logNote = '';
       try {
         const sizeStr = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : Math.round(f.size/1024)+'KB';
         const ext = (f.name.split('.').pop()||'').toLowerCase();
+        // Check memory first
+        const memKey = 'ff7pm_routing_' + ext;
+        const mem = localStorage.getItem(memKey);
+        const memData = mem ? JSON.parse(mem) : {};
+        const hint = Object.keys(memData).sort((a,b)=>memData[b]-memData[a])[0] || '';
         const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            model:'claude-sonnet-4-20250514', max_tokens:200,
-            messages:[{role:'user',content:`File: "${f.name}" (${sizeStr}, .${ext}). Progetto: ${p2.cod} - ${(p2.name1+' '+p2.name2).trim()}. Dove devo salvare questo file? Rispondi SOLO con JSON: {"sezione":"timeschedule|budget|contract|images|mdo|kom","log":"breve nota per il log (max 50 char)"}`}]
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:200,
+            messages:[{role:'user',content:`File: "${f.name}" (${sizeStr}, .${ext}). Progetto: ${p2.cod} - ${(p2.name1+' '+p2.name2).trim()}. Dove salvarlo? ${hint?'In passato file .'+ext+' sono stati salvati in: '+hint+'.':''} Se non sei sicuro usa "unknown". Rispondi SOLO JSON: {"sezione":"timeschedule|budget|contract|images|mdo|kom|unknown","log":"nota breve max 50 char","confident":true/false}`}]
           })
         });
         const data = await resp.json();
         const raw = (data.content?.[0]?.text||'').trim();
-        let sezione = '', logNote = '';
-        try { const j=JSON.parse(raw); sezione=j.sezione||''; logNote=j.log||''; } catch(_){ sezione='images'; logNote=f.name; }
-        // Save to proposed section
-        const sectionKey = sezione+'Files';
-        if(!p2[sectionKey]) p2[sectionKey]=[];
-        p2[sectionKey].push({name:f.name,date:todayStr(),size:sizeStr,blob:f});
-        appendLogLine(i, (logNote||f.name).slice(0,60) + ' → ' + sezione);
-        autoSave();
-        sysLog('Salvato in ' + sezione + ': ' + f.name.slice(0,30), 'ok');
-        _updateMenuItemColors(p2);
+        try { const j=JSON.parse(raw); sezione=j.sezione||'unknown'; logNote=j.log||''; if(!j.confident) sezione='unknown'; } catch(_){ sezione='unknown'; logNote=f.name; }
       } catch(err) {
         sysLog('Errore AI: ' + err.message, 'err');
-        appendLogLine(i, 'File: ' + f.name.slice(0,50));
+        sezione='unknown'; logNote=f.name;
       }
+      dtxt.textContent='drop mail'; spin.style.display='none';
+      showRoutingPopup(f, null, i, sezione, logNote, false);
     });
 
     logBox.addEventListener('click', e=>{ e.stopPropagation(); selectProject(i); });
@@ -5354,6 +5412,116 @@ function appendLogLine(projIdx, text) {
     dropText.textContent = 'drop mail';
   }
 })();
+
+// ── ROUTING POPUP ──────────────────────────────────────────────
+const SECTIONS_MAP = {
+  'kom':          'KOM',
+  'item':         'Mail Log',
+  'contract':     'Contract',
+  'budget':       'Budget',
+  'timeschedule': 'Time Schedule',
+  'images':       'Images',
+  'mdo':          'MDO',
+};
+const SECTIONS_KEYS = Object.keys(SECTIONS_MAP);
+
+function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isMail) {
+  // Remove existing popup
+  const existing = document.getElementById('routing-popup');
+  if(existing) existing.remove();
+
+  const p = PROJECTS[projIdx];
+  const isUnknown = !proposedSection || proposedSection === 'unknown';
+  const initSection = isUnknown ? 'item' : proposedSection;
+
+  const popup = document.createElement('div');
+  popup.id = 'routing-popup';
+  popup.style.cssText = `
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    z-index:99999;background:#0a0a2a;border:1px solid #304878;
+    padding:20px 24px;min-width:300px;max-width:420px;
+    font-family:VT323,monospace;box-shadow:0 0 40px rgba(0,0,80,.8);
+  `;
+
+  const title = isUnknown
+    ? `<div style="color:#ff9f0a;font-size:14px;letter-spacing:.1em;margin-bottom:12px;">⚠ DOVE SALVARE?</div>`
+    : `<div style="color:var(--yellow);font-size:14px;letter-spacing:.1em;margin-bottom:12px;">◆ SALVA FILE</div>`;
+
+  const fname = `<div style="color:#a0b8ff;font-size:12px;margin-bottom:6px;word-break:break-all;">${file.name}</div>`;
+  const proj  = `<div style="color:#607090;font-size:10px;margin-bottom:14px;">${p.cod} — ${(p.name1+' '+p.name2).trim()}</div>`;
+
+  const aiMsg = isUnknown
+    ? `<div style="color:#ff9f0a;font-size:11px;margin-bottom:10px;">L'AI non è sicura della destinazione. Scegli tu:</div>`
+    : `<div style="color:#4a8aff;font-size:11px;margin-bottom:10px;">AI suggerisce: <b style="color:var(--yellow)">${SECTIONS_MAP[proposedSection]||proposedSection}</b>${logNote ? ' — '+logNote : ''}</div>`;
+
+  // Dropdown
+  const options = SECTIONS_KEYS.map(k =>
+    `<option value="${k}" ${k===initSection?'selected':''}>${SECTIONS_MAP[k]}</option>`
+  ).join('');
+
+  const select = `
+    <div style="margin-bottom:16px;">
+      <label style="color:#8090c0;font-size:11px;display:block;margin-bottom:4px;">SEZIONE DESTINAZIONE</label>
+      <select id="routing-select" style="width:100%;background:#0d1a3a;border:1px solid #304878;color:#e0eaff;font-family:VT323,monospace;font-size:13px;padding:6px 8px;outline:none;">
+        ${options}
+      </select>
+    </div>`;
+
+  const buttons = `
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <span id="routing-cancel" style="color:#607090;font-size:13px;cursor:pointer;padding:4px 12px;border:1px solid #304060;">Annulla</span>
+      <span id="routing-ok" style="color:#000;background:var(--yellow);font-size:13px;cursor:pointer;padding:4px 14px;font-weight:bold;">Salva</span>
+    </div>`;
+
+  popup.innerHTML = title + fname + proj + aiMsg + select + buttons;
+  document.body.appendChild(popup);
+
+  // Wire buttons
+  document.getElementById('routing-cancel').addEventListener('click', () => {
+    popup.remove();
+    sysLog('Salvataggio annullato', '');
+  });
+
+  document.getElementById('routing-ok').addEventListener('click', async () => {
+    const chosen = document.getElementById('routing-select').value;
+    popup.remove();
+
+    // Save memory for this file type
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    const memKey = 'ff7pm_routing_' + ext;
+    try {
+      const mem = localStorage.getItem(memKey);
+      const memData = mem ? JSON.parse(mem) : {};
+      memData[chosen] = (memData[chosen]||0) + 1;
+      localStorage.setItem(memKey, JSON.stringify(memData));
+    } catch(_){}
+
+    const sizeStr = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
+
+    if(isMail && chosen === 'item') {
+      // Standard mail log
+      if(mailText) await analyzeMailAndLog(mailText, projIdx);
+    } else if(isMail && chosen !== 'item') {
+      // Mail saved to specific section + also logged
+      if(mailText) await analyzeMailAndLog(mailText, projIdx);
+      const sectionKey = chosen + 'Files';
+      if(!p[sectionKey]) p[sectionKey] = [];
+      const emlName = todayStr().replace(/\//g,'-') + '_' + file.name;
+      p[sectionKey].push({name:emlName, date:todayStr(), size:sizeStr, blob:file});
+      sysLog('Mail salvata in ' + SECTIONS_MAP[chosen] + ': ' + emlName.slice(0,30), 'ok');
+    } else {
+      // Generic file
+      const sectionKey = chosen + 'Files';
+      if(!p[sectionKey]) p[sectionKey] = [];
+      p[sectionKey].push({name:file.name, date:todayStr(), size:sizeStr, blob:file});
+      appendLogLine(projIdx, (logNote||file.name).slice(0,60) + ' → ' + SECTIONS_MAP[chosen]);
+      sysLog('Salvato in ' + SECTIONS_MAP[chosen] + ': ' + file.name.slice(0,30), 'ok');
+    }
+
+    autoSave();
+    _updateMenuItemColors(p);
+  });
+}
 
 async function analyzeMailAndLog(mailText, projIdx) {
   const p = PROJECTS[projIdx];

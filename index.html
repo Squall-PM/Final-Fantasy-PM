@@ -391,6 +391,7 @@ body{
 .menu-item{color:#fff;font-size:16px;padding:4px 14px 4px 10px;cursor:none;white-space:nowrap;user-select:none;text-shadow:1px 1px 0 #000,2px 2px 0 rgba(0,0,0,.5);}
 .menu-item.sel{color:var(--yellow);}
 .menu-item:hover{color:var(--yellow);}
+.menu-item.hov{color:var(--yellow);}
 /* Drag-to-reorder: nessun segno visibile, solo feedback durante drag */
 .menu-sortable{ transition:transform .12s; }
 .menu-sortable.dragging{ opacity:.4; }
@@ -417,8 +418,8 @@ body{
 .md-ppl{color:#7ec8e3;min-width:10px;}
 .md-type{color:#a0b8ff;font-size:11px;}
 .menu-item.folder-title{color:var(--yellow);font-size:17px;padding:8px 12px 3px 12px;letter-spacing:.04em;}
-.se-btn{color:#fff !important;font-size:13px !important;padding:3px 14px 3px 10px !important;}
-.se-btn:hover{color:#fff !important;opacity:.8;}
+.se-btn{color:#fff !important;font-size:16px !important;padding:4px 14px 4px 10px !important;}
+.se-btn:hover{color:var(--yellow) !important;opacity:1;}
 /* LOG box */
 #log-box{
   border:2px solid var(--border);
@@ -799,9 +800,24 @@ body{
   border-right:2px solid var(--border);
   position:relative;
 }
+#ff7-header-box.masterplan-mode #ff7-char-area{
+  border-right:none;
+}
+#ff7-header-box.masterplan-mode #ff7-char-area::before{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(to bottom right,rgba(0,0,150,.95),rgba(0,0,80,.95) 50%,rgba(0,0,15,.95));
+  z-index:1;
+}
+#ff7-header-box.masterplan-mode #ff7-char-area > *{
+  position:relative;z-index:2;
+}
+#ff7-header-box.masterplan-mode #ff7-submenu{
+  display:none;
+}
 #ff7-proj-switcher{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:5px 12px 4px;
+  display:flex;align-items:center;justify-content:flex-start;
+  padding:5px 12px 4px 8px;
   background:rgba(0,0,40,.6);
   border-bottom:1px solid #203060;
   cursor:pointer;
@@ -813,9 +829,10 @@ body{
   font-family:VT323,monospace;font-size:13px;
   color:#a0b8ff;letter-spacing:.08em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;
+  padding-left:70px;
 }
 #ff7-proj-switcher-arrow{
-  font-size:12px;color:#607090;margin-left:6px;flex-shrink:0;
+  font-size:12px;color:#607090;margin-right:6px;flex-shrink:0;
   transition:transform .15s;
 }
 #ff7-proj-switcher.open #ff7-proj-switcher-arrow{ transform:rotate(180deg); }
@@ -3122,6 +3139,7 @@ function openFileFf7(tipo, triggerEl) {
   if (tipo === 'masterplan') {
     document.getElementById('ff7-top-label').textContent = 'MASTERPLAN';
     document.getElementById('ff7-top-label').style.visibility = '';
+    document.getElementById('ff7-top-wrapper').style.display = 'block';
     document.getElementById('ff7-submenu').classList.add('hidden');
 
     // Populate header with global stats
@@ -3142,7 +3160,9 @@ function openFileFf7(tipo, triggerEl) {
     const urgent  = upcoming.filter(x => x.days <= 30).length;
 
     const charArea2 = document.getElementById('ff7-char-area');
-    if(charArea2) charArea2.innerHTML = `<div style="padding:8px 4px;color:#a0b8ff;font-family:VT323,monospace;font-size:13px;letter-spacing:.05em;width:100%;">
+    const hdrBox = document.getElementById('ff7-header-box');
+    if(hdrBox) hdrBox.classList.add('masterplan-mode');
+    if(charArea2) charArea2.innerHTML = `<div style="padding:8px 4px 8px 74px;color:#a0b8ff;font-family:VT323,monospace;font-size:13px;letter-spacing:.05em;width:100%;box-sizing:border-box;">
       <div style="color:var(--yellow);font-size:15px;margin-bottom:6px;">— GLOBAL OVERVIEW —</div>
       <div><span style="color:#607090;">TOT</span> &nbsp;${total} projects</div>
       <div><span style="color:#607090;">BDG</span> &nbsp;€ ${Math.round(totalBudget).toLocaleString('it-IT')}</div>
@@ -3171,12 +3191,14 @@ function openFileFf7(tipo, triggerEl) {
   const maxVal = Math.max(...PROJECTS.map(x => x.val), 1);
 
   // ── Ripristina struttura originale di ff7-char-area se azzerata dal global overview ──
+  const hdrBox2 = document.getElementById('ff7-header-box');
+  if(hdrBox2) hdrBox2.classList.remove('masterplan-mode');
   const charAreaEl = document.getElementById('ff7-char-area');
   if (charAreaEl && !document.getElementById('ff7-port-code')) {
     charAreaEl.innerHTML = `
       <div id="ff7-proj-switcher" onclick="toggleProjSwitcher(event)">
-        <span id="ff7-proj-switcher-label">— SELECT PROJECT —</span>
         <span id="ff7-proj-switcher-arrow">▾</span>
+        <span id="ff7-proj-switcher-label">— SELECT PROJECT —</span>
       </div>
       <div id="ff7-proj-dropdown"></div>
       <div id="ff7-portrait-wrap" style="display:flex;gap:0;width:100%;">
@@ -3364,6 +3386,13 @@ function closeFullscreen() {
   document.getElementById('ff7-top-dropdown').classList.remove('open');
   fs.classList.remove('open','visible','hiding');
   restoreMenuFromFly(false); // false = instant, move panel back to sidebar
+  // Riseleziona il progetto corrente nella lista principale
+  if(selectedIdx !== null && selectedIdx !== undefined) {
+    selectProject(selectedIdx);
+    // Scroll alla card selezionata
+    const rows = document.querySelectorAll('.proj-row');
+    if(rows[selectedIdx]) rows[selectedIdx].scrollIntoView({block:'nearest', behavior:'smooth'});
+  }
 }
 
 function doMenuFlyAnimation(triggerEl, label, fs, fsAlreadyOpen) {
@@ -4937,19 +4966,35 @@ function renderMdRows(){
 
 // Hand cursor
 const hand=document.getElementById('hand');
+function _menuItemHoverReset() {
+  document.querySelectorAll('.menu-item').forEach(item=>{
+    if(item.dataset.hovered === '1') {
+      item.style.color = item.dataset.prevColor || '';
+      delete item.dataset.prevColor;
+      delete item.dataset.hovered;
+    }
+  });
+}
+
 document.addEventListener('mousemove',e=>{
   hand.style.display='block';
   hand.style.left=e.clientX+'px';
   hand.style.top=e.clientY+'px';
   document.querySelectorAll('.menu-item').forEach(item=>{
     const r=item.getBoundingClientRect();
-    if(e.clientY>=r.top&&e.clientY<=r.bottom&&e.clientX>=r.left&&e.clientX<=r.right){
-      document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('sel'));
-      item.classList.add('sel');
+    const over=e.clientY>=r.top&&e.clientY<=r.bottom&&e.clientX>=r.left&&e.clientX<=r.right;
+    if(over && item.dataset.hovered !== '1'){
+      item.dataset.prevColor = item.style.color;
+      item.dataset.hovered = '1';
+      item.style.color = 'var(--yellow)';
+    } else if(!over && item.dataset.hovered === '1'){
+      item.style.color = item.dataset.prevColor || '';
+      delete item.dataset.prevColor;
+      delete item.dataset.hovered;
     }
   });
 });
-document.addEventListener('mouseleave',()=>{hand.style.display='none';});
+document.addEventListener('mouseleave',()=>{hand.style.display='none'; _menuItemHoverReset();});
 
 // Date
 sysLog('System ready.', '');
@@ -5701,8 +5746,8 @@ function switchFullscreenProject(idx){
     if(charAreaEl && !document.getElementById('ff7-port-code')){
       charAreaEl.innerHTML = `
         <div id="ff7-proj-switcher" onclick="toggleProjSwitcher(event)">
-          <span id="ff7-proj-switcher-label">—</span>
           <span id="ff7-proj-switcher-arrow">▾</span>
+          <span id="ff7-proj-switcher-label">—</span>
         </div>
         <div id="ff7-proj-dropdown"></div>
         <div id="ff7-portrait-wrap" style="display:flex;gap:0;width:100%;">

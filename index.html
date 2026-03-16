@@ -290,7 +290,7 @@ body{
   flex-shrink:0;margin-left:16px;padding-top:2px;
   display:flex;flex-direction:column;gap:4px;align-items:flex-end;
   align-self:stretch;
-  min-width:220px;
+  min-width:520px;
 }
 .pay-box{
   border:2px solid var(--border);
@@ -298,7 +298,7 @@ body{
   box-shadow:inset 1px 1px 0 rgba(160,180,255,.3);
   padding:6px 8px;
   display:flex;flex-direction:column;gap:4px;
-  width:100%;box-sizing:border-box;cursor:none;
+  width:100%;box-sizing:border-box;cursor:none;flex:6;
 }
 .pay-box:hover{box-shadow:inset 1px 1px 0 rgba(160,180,255,.5),0 0 8px rgba(160,180,255,.3);}
 .md-box:hover{box-shadow:inset 1px 1px 0 rgba(160,180,255,.5),0 0 8px rgba(160,180,255,.3);}
@@ -406,7 +406,7 @@ body{
   padding:6px 8px;
   display:flex;flex-direction:column;gap:2px;
   width:100%;box-sizing:border-box;cursor:none;
-  position:relative;
+  position:relative;flex:4;min-width:60px;
 }
 .md-box-label{
   font-size:12px;color:#a0b8ff;letter-spacing:.06em;text-transform:uppercase;
@@ -1198,6 +1198,12 @@ body{
       <div class="menu-item se-btn" onclick="saveState()">Save</div>
       <div class="menu-item se-btn" onclick="openSettings()" style="color:#a0b8ff;">Settings</div>
       <div class="menu-item se-btn" onclick="exitApp()">Exit</div>
+    </div>
+
+    <!-- CENTRAL DROP PANEL -->
+    <div id="central-drop-panel" style="padding:4px 6px;min-height:80px;display:flex;flex-direction:column;">
+      <div id="central-drop-zone" style="border:1px dashed #304878;color:#4060a0;font-family:VT323,monospace;font-size:12px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;flex:1;min-height:70px;cursor:pointer;transition:border-color .15s,color .15s;padding:8px;text-align:center;">◆ DROP FILE</div>
+      <input type="file" id="central-drop-input" style="display:none;" multiple>
     </div>
 
     <!-- MASTERPLAN BOX -->
@@ -3672,7 +3678,7 @@ function doMenuFlyAnimation(triggerEl, label, fs, fsAlreadyOpen) {
   });
 
   // Hide ALL other right-side boxes (SAVE/SETTINGS/EXIT, Masterplan, info-panel)
-  document.querySelectorAll('.right-side > .menu-panel:not(#menu-panel), .right-side .info-panel').forEach(el => {
+  document.querySelectorAll('.right-side > .menu-panel:not(#menu-panel), .right-side .info-panel, #central-drop-panel').forEach(el => {
     el.style.overflow = 'hidden';
     el.style.maxHeight = el.offsetHeight + 'px';
     el.style.transition = 'max-height 0.32s ease, opacity 0.22s ease';
@@ -3785,7 +3791,7 @@ function restoreMenuFromFly(animate) {
   });
 
   // Restore other right-side boxes
-  document.querySelectorAll('.right-side > .menu-panel:not(#menu-panel), .right-side .info-panel').forEach(el => {
+  document.querySelectorAll('.right-side > .menu-panel:not(#menu-panel), .right-side .info-panel, #central-drop-panel').forEach(el => {
     el.style.transition = 'none';
     el.style.maxHeight = '';
     el.style.opacity = '';
@@ -4625,12 +4631,6 @@ function renderProjects(){
     logBox.innerHTML = `
       <div id="log-box-label-${i}" style="position:absolute;top:5px;right:8px;color:#fff;font-size:11px;letter-spacing:.12em;opacity:.85;font-family:VT323,monospace;pointer-events:none;">LOG</div>
       <span class="log-expand-btn" data-proj="${i}" title="Espandi storico giornaliero" style="position:absolute;top:3px;left:6px;color:#4a6a9a;font-size:13px;cursor:pointer;z-index:2;line-height:1;padding:2px 4px;transition:color .15s;" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='#4a6a9a'">⤢</span>
-      <div class="proj-row-log-drop" data-proj="${i}">
-        <span style="color:#6080c0;font-size:11px;flex-shrink:0;">✉</span>
-        <span class="proj-row-log-drop-text">drop mail</span>
-        <span class="proj-row-log-spinner" style="display:none;color:#7ec8e3;font-size:14px;animation:spin 1s linear infinite;flex-shrink:0;">⟳</span>
-        <input type="file" class="proj-row-log-file" accept=".msg,.eml,.txt" style="display:none;">
-      </div>
       <textarea class="proj-row-log-ta" data-proj="${i}" placeholder="notes..." spellcheck="false">${(p.log||'').replace(/</g,'&lt;')}</textarea>`;
     wrap.appendChild(logBox);
 
@@ -4738,114 +4738,7 @@ function renderProjects(){
         openLogHistory(i);
       });
     }
-    // wire mail drop area
-    const drop = logBox.querySelector('.proj-row-log-drop');
-    const inp  = logBox.querySelector('.proj-row-log-file');
-    const spin = logBox.querySelector('.proj-row-log-spinner');
-    const dtxt = logBox.querySelector('.proj-row-log-drop-text');
-    drop.addEventListener('click', e=>{ e.stopPropagation(); inp.click(); });
-    inp.addEventListener('change', async ()=>{
-      const f=inp.files[0]; if(!f) return;
-      dtxt.textContent='analyzing…'; spin.style.display='block';
-      const txt=await f.text(); await analyzeMailAndLog(txt,i);
-      dtxt.textContent='drop mail'; spin.style.display='none'; inp.value='';
-    });
-    drop.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); drop.classList.add('drag-over'); });
-    drop.addEventListener('dragleave', ()=>drop.classList.remove('drag-over'));
-    drop.addEventListener('drop', async e=>{
-      e.preventDefault(); e.stopPropagation(); drop.classList.remove('drag-over');
-      const f=e.dataTransfer.files[0]; if(!f) return;
-      dtxt.textContent='analyzing…'; spin.style.display='block';
-      const txt=await f.text(); await analyzeMailAndLog(txt,i);
-      dtxt.textContent='drop mail'; spin.style.display='none';
-    });
-
-    // Feature 10: drag ANY file anywhere on the logBox → AI analyzes, shows confirm popup
-    logBox.addEventListener('dragover', e=>{ e.preventDefault(); e.stopPropagation(); logBox.style.outline='1px solid var(--yellow)'; });
-    logBox.addEventListener('dragleave', e=>{ if(!logBox.contains(e.relatedTarget)) logBox.style.outline=''; });
-    logBox.addEventListener('drop', async e=>{
-      e.preventDefault(); e.stopPropagation(); logBox.style.outline='';
-      const f = e.dataTransfer.files[0]; if(!f) return;
-      selectProject(i);
-      const p2 = PROJECTS[i];
-
-      // Mail/text → analyze + propose section via popup
-      if(f.name.toLowerCase().match(/\.(msg|eml|txt)$/)) {
-        dtxt.textContent='analyzing…'; spin.style.display='block';
-        const txt = await f.text();
-        // AI decides section for mail too
-        const sizeStr = Math.round(f.size/1024)+'KB';
-        let mailSection = 'item';
-        let mailLogNote = '';
-        try {
-          const ext3 = f.name.split('.').pop().toLowerCase();
-          const memCtx2 = _buildMemoryContext(f.name, ext3);
-          const resp2 = await fetch('https://api.anthropic.com/v1/messages', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:250,
-              messages:[{role:'user',content:`File: "${f.name}" (mail/testo). Progetto: ${p2.cod}. ${memCtx2} Dove salvarlo? kom=KOM/kickoff, item=mail generica, contract=contratti, budget=budget, timeschedule=schedule, images=foto, mdo=MDO. Rispondi SOLO JSON: {"sezione":"kom|item|contract|budget|timeschedule|images|mdo|unknown","log":"nota breve max 50 char","confident":true/false}`}]
-            })
-          });
-          const d2 = await resp2.json();
-          const raw2 = (d2.content?.[0]?.text||'').trim();
-          try { const j2=JSON.parse(raw2); mailSection=j2.sezione||'item'; mailLogNote=j2.log||''; if(!j2.confident) mailSection='unknown'; } catch(_){}
-        } catch(_){}
-        dtxt.textContent='drop mail'; spin.style.display='none';
-        // Show confirm popup
-        showRoutingPopup(f, txt, i, mailSection, mailLogNote, true);
-        return;
-      }
-
-      // Any other file
-      sysLog('Analisi file: ' + f.name.slice(0,30) + '…', '');
-      dtxt.textContent='analyzing…'; spin.style.display='block';
-      let sezione = 'unknown', logNote = '';
-      try {
-        const sizeStr = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1)+'MB' : Math.round(f.size/1024)+'KB';
-        const ext = (f.name.split('.').pop()||'').toLowerCase();
-        // Check memory first
-        const memCtx = _buildMemoryContext(f.name, ext);
-        // Build project list context for wrong-project detection
-        const allProjs = PROJECTS.map(pp => pp.cod + ' ' + (pp.name1+' '+pp.name2).trim()).join(', ');
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:300,
-            messages:[{role:'user',content:`File: "${f.name}" (${sizeStr}, .${ext}). Trascinato nel LOG del progetto: ${p2.cod} - ${(p2.name1+' '+p2.name2).trim()}.
-
-REGOLE DI ROUTING:
-- timeschedule: .mpp .mpt, schedule, gantt, cronoprogramma, piano lavori
-- budget: .xlsx .xls .csv con budget, preventivo, costi, offerta, quotation
-- contract: contratto, ordine, PO, purchase order, agreement, accordo
-- images: .jpg .png .gif .mp4 .mov, foto, video, immagine
-- mdo: MDO, machinery description, specifiche macchine, datasheet
-- kom: KOM, kickoff, meeting, verbale, minutes
-- item: mail generica, corrispondenza
-
-${memCtx}
-
-Altri progetti: ${allProjs}
-
-Rispondi SOLO JSON: {"sezione":"timeschedule|budget|contract|images|mdo|kom|item|unknown","log":"nota breve max 50 char","confident":true/false,"wrong_project":false,"suggested_proj":"cod progetto o null"}`}]
-          })
-        });
-        const data = await resp.json();
-        const raw = (data.content?.[0]?.text||'').trim();
-        let wrongProj = false, suggestedProj = null;
-        try {
-          const j=JSON.parse(raw);
-          sezione=j.sezione||'unknown';
-          logNote=j.log||'';
-          if(!j.confident) sezione='unknown';
-          wrongProj = !!j.wrong_project;
-          suggestedProj = j.suggested_proj||null;
-        } catch(_){ sezione='unknown'; logNote=f.name; }
-      } catch(err) {
-        sysLog('Errore AI: ' + err.message, 'err');
-        sezione='unknown'; logNote=f.name;
-      }
-      dtxt.textContent='drop mail'; spin.style.display='none';
-      showRoutingPopup(f, null, i, sezione, logNote, false, wrongProj, suggestedProj);
-    });
+    // (drop files handled by central drop zone)
 
     logBox.addEventListener('click', e=>{ e.stopPropagation(); selectProject(i); });
 
@@ -5722,6 +5615,7 @@ document.addEventListener('DOMContentLoaded', _initDelivImportModal);
 if (document.readyState !== 'loading') _initDelivImportModal();
 
 
+
 // ══════════════════════════════════════════════════════
 // LOG helpers
 // ══════════════════════════════════════════════════════
@@ -6456,20 +6350,9 @@ function openLogHistory(projIdx) {
   content.id = 'lh-content';
   content.style.cssText = 'flex:1;overflow-y:auto;padding:12px 16px;scrollbar-width:thin;scrollbar-color:#304878 transparent;';
 
-  // Edit area (bottom)
-  const editBar = document.createElement('div');
-  editBar.style.cssText = 'border-top:1px solid rgba(160,180,255,.2);padding:10px 16px;flex-shrink:0;background:rgba(0,0,40,.6);display:flex;flex-direction:column;gap:6px;';
-  editBar.innerHTML = `
-    <div style="color:#a0b8ff;font-size:11px;letter-spacing:.06em;">MODIFICA LOG COMPLETO</div>
-    <textarea id="lh-edit-ta" style="width:100%;height:120px;background:#000820;border:1px solid #203060;color:#c0d0ff;font-family:VT323,monospace;font-size:11px;padding:6px 8px;outline:none;resize:vertical;line-height:1.5;" spellcheck="false">${logText.replace(/</g,'&lt;')}</textarea>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <span id="lh-save-edit" style="color:#000;background:var(--yellow);font-size:13px;cursor:pointer;padding:4px 14px;">Salva modifiche</span>
-    </div>`;
-
   box.appendChild(header);
   box.appendChild(filterBar);
   box.appendChild(content);
-  box.appendChild(editBar);
   modal.appendChild(box);
   document.body.appendChild(modal);
 
@@ -6496,15 +6379,55 @@ function openLogHistory(projIdx) {
 
       const linesDiv = document.createElement('div');
       linesDiv.style.cssText = 'padding-left:8px;';
-      lines.forEach(line => {
+      lines.forEach((line, li) => {
         const el = document.createElement('div');
-        el.style.cssText = 'color:#a0b8ff;font-size:11px;line-height:1.55;word-break:break-word;';
-        // Highlight search term
+        el.style.cssText = 'color:#a0b8ff;font-size:11px;line-height:1.55;word-break:break-word;padding:1px 4px;border-radius:2px;cursor:text;';
+        el.title = 'Click per modificare';
         if(f && line.toLowerCase().includes(f)) {
           el.style.background = 'rgba(248,224,64,.08)';
           el.style.color = '#e0eaff';
         }
         el.textContent = line;
+
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          if(el.querySelector('input')) return;
+          const curLine = dayMap[day][li];
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.value = curLine;
+          inp.style.cssText = 'width:100%;background:#000820;border:1px solid var(--yellow);color:#e0eaff;font-family:VT323,monospace;font-size:11px;padding:1px 4px;outline:none;box-sizing:border-box;';
+          inp.addEventListener('mousedown', e2 => e2.stopPropagation());
+          inp.addEventListener('click', e2 => e2.stopPropagation());
+
+          const save = () => {
+            const newVal = inp.value;
+            dayMap[day][li] = newVal;
+            // Rebuild full log preserving original day order (asc)
+            const sortedDays = Object.keys(dayMap).sort((a,b) => {
+              if(a==='Senza data') return 1; if(b==='Senza data') return -1;
+              const [ad,am,ay]=a.split('/'), [bd,bm,by]=b.split('/');
+              return new Date(+ay,+am-1,+ad) - new Date(+by,+bm-1,+bd);
+            });
+            const newLog = sortedDays.flatMap(d => dayMap[d]).join('\n');
+            PROJECTS[projIdx].log = newLog;
+            const mainTa = document.querySelector('.proj-row-log-ta[data-proj="'+projIdx+'"]');
+            if(mainTa) mainTa.value = newLog;
+            autoSave();
+            el.textContent = newVal;
+          };
+
+          inp.addEventListener('keydown', e2 => {
+            if(e2.key === 'Enter') { e2.preventDefault(); inp.blur(); }
+            if(e2.key === 'Escape') { el.textContent = curLine; }
+          });
+          inp.addEventListener('blur', save);
+
+          el.textContent = '';
+          el.appendChild(inp);
+          setTimeout(() => { inp.focus(); inp.select(); }, 0);
+        });
+
         linesDiv.appendChild(el);
       });
 
@@ -6531,19 +6454,6 @@ function openLogHistory(projIdx) {
     const todayEl = content.querySelector('[data-day="'+todayStr()+'"]');
     if(todayEl) todayEl.scrollIntoView({behavior:'smooth', block:'start'});
     else sysLog('Nessuna voce per oggi', '');
-  });
-
-  // Save edit
-  document.getElementById('lh-save-edit').addEventListener('click', () => {
-    const ta = document.getElementById('lh-edit-ta');
-    if(!ta) return;
-    PROJECTS[projIdx].log = ta.value;
-    // Re-sync textarea in main view
-    const mainTa = document.querySelector(`.proj-row-log-ta[data-proj="${projIdx}"]`);
-    if(mainTa) mainTa.value = ta.value;
-    autoSave();
-    sysLog('Log aggiornato', 'ok');
-    modal.remove();
   });
 
   // Close
@@ -6677,6 +6587,84 @@ self.addEventListener('fetch', e => {
   const swUrl = URL.createObjectURL(blob);
   navigator.serviceWorker.register(swUrl).catch(() => {});
 })();
+
+// ══════════════════════════════════════════════════════
+// CENTRAL DROP ZONE (sotto Save/Settings/Exit)
+// ══════════════════════════════════════════════════════
+function initCentralDrop() {
+  const dz = document.getElementById('central-drop-zone');
+  const inp = document.getElementById('central-drop-input');
+  if(!dz || !inp) return;
+
+  dz.addEventListener('mouseenter', () => { dz.style.borderColor='var(--yellow)'; dz.style.color='var(--yellow)'; });
+  dz.addEventListener('mouseleave', () => { dz.style.borderColor='#304878'; dz.style.color='#4060a0'; });
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dz.style.borderColor='var(--yellow)'; dz.style.color='var(--yellow)'; dz.style.background='rgba(248,224,64,.05)'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor='#304878'; dz.style.color='#4060a0'; dz.style.background=''; });
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation();
+    dz.style.borderColor='#304878'; dz.style.color='#4060a0'; dz.style.background='';
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(f => handleCentralDrop(f));
+  });
+  dz.addEventListener('click', () => inp.click());
+  inp.addEventListener('change', () => {
+    Array.from(inp.files).forEach(f => handleCentralDrop(f));
+    inp.value = '';
+  });
+}
+
+async function handleCentralDrop(file) {
+  if(selectedIdx === null) { sysLog('Seleziona un progetto prima', 'warn'); return; }
+  const projIdx = selectedIdx;
+  const ext = (file.name.split('.').pop()||'').toLowerCase();
+  const isMail = ['msg','eml'].includes(ext);
+  const memCtx = _buildMemoryContext(file.name, ext);
+
+  const dz = document.getElementById('central-drop-zone');
+  if(dz) { dz.textContent = '⟳ analisi...'; dz.style.color='#7ec8e3'; }
+
+  try {
+    if(isMail) {
+      const text = await file.text();
+      await analyzeMailAndLog(text, projIdx);
+      if(dz) { dz.textContent = '◆ DROP FILE'; dz.style.color='#4060a0'; }
+      return;
+    }
+
+    // AI routing
+    const prompt = `Sei un assistente per la gestione progetti.
+${memCtx}
+Nome file: "${file.name}"
+Estensione: .${ext}
+Sezioni disponibili: kom (documenti KOM interni), contract (contratti), budget (file budget/offerta), timeschedule (pianificazione tempi), mdo (mise en oeuvre), images (immagini/foto), item (altro/generico).
+Rispondi SOLO con un JSON: {"section":"<chiave>","note":"<breve motivo>"}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:200, messages:[{role:'user',content:prompt}] })
+    });
+    const data = await resp.json();
+    const txt = (data.content||[]).map(c=>c.text||'').join('');
+    let section = 'item', note = '';
+    try {
+      const clean = txt.replace(/```json|```/g,'').trim();
+      const parsed = JSON.parse(clean);
+      section = parsed.section || 'item';
+      note = parsed.note || '';
+    } catch(_) {}
+
+    if(dz) { dz.textContent = '◆ DROP FILE'; dz.style.color='#4060a0'; }
+    showRoutingPopup(file, '', projIdx, section, note, false, false, null);
+  } catch(err) {
+    sysLog('Errore drop: '+err.message, 'err');
+    if(dz) { dz.textContent = '◆ DROP FILE'; dz.style.color='#4060a0'; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initCentralDrop);
+if(document.readyState !== 'loading') initCentralDrop();
 </script>
 </body>
 </html>

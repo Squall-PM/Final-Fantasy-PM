@@ -998,7 +998,7 @@ body{
 #ff7-dropzone{
   border:1px dashed #304878;margin:6px 20px;
   padding:5px 14px;text-align:center;
-  color:#4060a0;font-size:12px;letter-spacing:.08em;
+  color:#4060a0;font-size:18px;letter-spacing:.08em;
   transition:border-color .15s,color .15s,background .15s;cursor:none;
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
@@ -1006,7 +1006,7 @@ body{
   border-color:var(--yellow);color:var(--yellow);
   background:rgba(248,224,64,.04);
 }
-#ff7-dropzone-label{ font-size:13px;margin:0; }
+#ff7-dropzone-label{ font-size:18px;margin:0; }
 #ff7-file-result{
   margin:0 20px 12px;border:1px solid #304060;
   padding:10px 14px;background:rgba(0,0,40,.6);
@@ -3369,16 +3369,16 @@ function _restoreDroppedFiles(tipo, scroll, dz) {
 
   function renderList() {
     let html = '<div style="font-family:VT323,monospace;padding:4px 6px;">';
-    html += '<div style="color:var(--yellow);font-size:12px;letter-spacing:.06em;margin-bottom:4px;">FILE CARICATI</div>';
+    html += '<div style="color:var(--yellow);font-size:18px;letter-spacing:.06em;margin-bottom:4px;">FILE CARICATI</div>';
     files.forEach((f, fi) => {
       html += `<div class="df-row" data-fi="${fi}" style="display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid rgba(160,180,255,.10);">
-        <a href="#" class="df-name" data-fi="${fi}" style="color:var(--yellow);font-size:13px;text-decoration:none;cursor:pointer;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click: anteprima — Doppio click: apri">📄 ${f.name.replace(/</g,'&lt;')}</a>
-        <span class="df-rename" data-fi="${fi}" style="color:#607090;font-size:11px;cursor:pointer;padding:0 3px;" title="Rinomina">✎</span>
-        <span class="df-del" data-fi="${fi}" style="color:#604060;font-size:11px;cursor:pointer;padding:0 3px;" title="Elimina">✕</span>
+        <a href="#" class="df-name" data-fi="${fi}" style="color:var(--yellow);font-size:18px;text-decoration:none;cursor:pointer;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click: anteprima — Doppio click: apri">📄 ${f.name.replace(/</g,'&lt;')}</a>
+        <span class="df-rename" data-fi="${fi}" style="color:#607090;font-size:18px;cursor:pointer;padding:0 5px;" title="Rinomina">✎</span>
+        <span class="df-del" data-fi="${fi}" style="color:#604060;font-size:18px;cursor:pointer;padding:0 5px;" title="Elimina">✕</span>
       </div>`;
     });
     html += '</div>';
-    html += `<div id="sm-big-preview" style="flex:1;min-height:320px;background:rgba(0,0,40,.4);border:1px solid rgba(160,180,255,.1);border-radius:2px;margin:6px 4px;display:flex;align-items:center;justify-content:center;color:#304878;font-size:11px;font-family:VT323,monospace;overflow:hidden;">— anteprima —</div>`;
+    html += `<div id="sm-big-preview" style="flex:1;min-height:320px;background:rgba(0,0,40,.4);border:1px solid rgba(160,180,255,.1);border-radius:2px;margin:6px 4px;display:flex;align-items:center;justify-content:center;color:#304878;font-size:16px;font-family:VT323,monospace;overflow:hidden;">— anteprima —</div>`;
     scroll.innerHTML = html;
 
     scroll.querySelectorAll('.df-name').forEach(a => {
@@ -3481,17 +3481,17 @@ function handleDroppedFile(file, scroll, dz) {
     function renderDroppedList() {
       const files = window._droppedFiles[key];
       let html = '<div style="font-family:VT323,monospace;padding:4px 6px;">';
-      html += '<div style="color:var(--yellow);font-size:12px;letter-spacing:.06em;margin-bottom:4px;">FILE CARICATI</div>';
+      html += '<div style="color:var(--yellow);font-size:18px;letter-spacing:.06em;margin-bottom:4px;">FILE CARICATI</div>';
       files.forEach((f, fi) => {
         html += `<div class="df-row" data-fi="${fi}" style="display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid rgba(160,180,255,.10);">
-          <a href="#" class="df-name" data-fi="${fi}" style="color:var(--yellow);font-size:13px;text-decoration:none;cursor:pointer;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Clicca per aprire">📄 ${f.name.replace(/</g,'&lt;')}</a>
-          <span class="df-rename" data-fi="${fi}" style="color:#607090;font-size:11px;cursor:pointer;padding:0 3px;" title="Rinomina">✎</span>
-          <span class="df-del" data-fi="${fi}" style="color:#604060;font-size:11px;cursor:pointer;padding:0 3px;" title="Elimina">✕</span>
+          <a href="#" class="df-name" data-fi="${fi}" style="color:var(--yellow);font-size:18px;text-decoration:none;cursor:pointer;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Clicca per aprire">📄 ${f.name.replace(/</g,'&lt;')}</a>
+          <span class="df-rename" data-fi="${fi}" style="color:#607090;font-size:18px;cursor:pointer;padding:0 5px;" title="Rinomina">✎</span>
+          <span class="df-del" data-fi="${fi}" style="color:#604060;font-size:18px;cursor:pointer;padding:0 5px;" title="Elimina">✕</span>
         </div>`;
       });
       html += '</div>';
       // Preview area grande
-      html += `<div id="sm-big-preview" style="flex:1;min-height:320px;background:rgba(0,0,40,.4);border:1px solid rgba(160,180,255,.1);border-radius:2px;margin:6px 4px;display:flex;align-items:center;justify-content:center;color:#304878;font-size:11px;font-family:VT323,monospace;overflow:hidden;">— anteprima —</div>`;
+      html += `<div id="sm-big-preview" style="flex:1;min-height:320px;background:rgba(0,0,40,.4);border:1px solid rgba(160,180,255,.1);border-radius:2px;margin:6px 4px;display:flex;align-items:center;justify-content:center;color:#304878;font-size:16px;font-family:VT323,monospace;overflow:hidden;">— anteprima —</div>`;
       scroll.innerHTML = html;
 
       // Wire click → apri + mostra anteprima
@@ -3659,7 +3659,7 @@ function doMenuFlyAnimation(triggerEl, label, fs, fsAlreadyOpen) {
     if (el !== triggerEl) {
       el.style.overflow = 'hidden';
       el.style.maxHeight = el.offsetHeight + 'px';
-      el.style.transition = 'max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease';
+      el.style.transition = 'max-height 0.38s ease, opacity 0.28s ease, padding 0.38s ease';
       requestAnimationFrame(() => {
         el.style.maxHeight = '0';
         el.style.opacity = '0';
@@ -3673,11 +3673,11 @@ function doMenuFlyAnimation(triggerEl, label, fs, fsAlreadyOpen) {
   menuPanel.querySelectorAll('.se-btn, .menu-gap').forEach(el => {
     el.style.overflow = 'hidden';
     el.style.maxHeight = el.offsetHeight + 'px';
-    el.style.transition = 'max-height 0.3s ease, opacity 0.2s ease';
+    el.style.transition = 'max-height 0.32s ease, opacity 0.22s ease';
     requestAnimationFrame(() => { el.style.maxHeight = '0'; el.style.opacity = '0'; });
   });
 
-  // Hide ALL other right-side boxes (SAVE/SETTINGS/EXIT, Masterplan, info-panel)
+  // Hide ALL other right-side boxes
   document.querySelectorAll('.right-side > .menu-panel:not(#menu-panel), .right-side .info-panel, #central-drop-panel').forEach(el => {
     el.style.overflow = 'hidden';
     el.style.maxHeight = el.offsetHeight + 'px';
@@ -3685,48 +3685,45 @@ function doMenuFlyAnimation(triggerEl, label, fs, fsAlreadyOpen) {
     requestAnimationFrame(() => { el.style.maxHeight = '0'; el.style.opacity = '0'; });
   });
 
-  // After collapse, slide panel upward to top of screen
   const panelRect = menuPanel.getBoundingClientRect();
 
-  setTimeout(() => {
-    if (fsAlreadyOpen) {
-      // Panel is already fixed top:0 — just mark as contracted, no slide needed
+  if (fsAlreadyOpen) {
+    setTimeout(() => {
       menuPanel.style.zIndex = '9999';
       menuPanel.style.pointerEvents = 'auto';
       window._menuFlyActive = true;
-      // Aggiorna colori: in modalità IDEER tutto bianco
       const _pFly = (window._currentProjIdx !== null && window._currentProjIdx !== undefined) ? PROJECTS[window._currentProjIdx] : null;
       if(_pFly) _updateMenuItemColors(_pFly);
-    } else {
-      // Snap to fixed at EXACT current position then slide up
-      menuPanel.style.position = 'fixed';
-      menuPanel.style.top = panelRect.top + 'px';
-      menuPanel.style.left = panelRect.left + 'px';
-      menuPanel.style.width = panelRect.width + 'px';
-      menuPanel.style.right = 'auto';
-      menuPanel.style.zIndex = '9999';
-      menuPanel.style.margin = '0';
-      document.body.appendChild(menuPanel);
+    }, 400);
+  } else {
+    // Snap to fixed at EXACT current position immediately
+    menuPanel.style.position = 'fixed';
+    menuPanel.style.top = panelRect.top + 'px';
+    menuPanel.style.left = panelRect.left + 'px';
+    menuPanel.style.width = panelRect.width + 'px';
+    menuPanel.style.right = 'auto';
+    menuPanel.style.zIndex = '9999';
+    menuPanel.style.margin = '0';
+    document.body.appendChild(menuPanel);
 
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        menuPanel.style.transition = 'top 0.4s cubic-bezier(0.4,0,0.2,1)';
-        menuPanel.style.top = '0';
-      }));
+    // Start sliding up immediately in sync with collapse
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      menuPanel.style.transition = 'top 0.42s cubic-bezier(0.4,0,0.2,1)';
+      menuPanel.style.top = '0';
+    }));
 
-      setTimeout(() => {
-        menuPanel.style.transition = '';
-        fs.classList.add('open');
-        requestAnimationFrame(() => fs.classList.add('visible'));
-        initDropzone();
-        menuPanel.style.pointerEvents = 'auto';
-        window._menuFlyActive = true;
-        window._menuOrigParent = document.getElementById('ff7-menu-inner');
-        // Refresh colors: in IDEER/fly mode all items become white
-        const _p2 = (window._currentProjIdx !== null && window._currentProjIdx !== undefined) ? PROJECTS[window._currentProjIdx] : null;
-        if(_p2) _updateMenuItemColors(_p2);
-      }, 420);
-    }
-  }, 400);
+    setTimeout(() => {
+      menuPanel.style.transition = '';
+      fs.classList.add('open');
+      requestAnimationFrame(() => fs.classList.add('visible'));
+      initDropzone();
+      menuPanel.style.pointerEvents = 'auto';
+      window._menuFlyActive = true;
+      window._menuOrigParent = document.getElementById('ff7-menu-inner');
+      const _p2 = (window._currentProjIdx !== null && window._currentProjIdx !== undefined) ? PROJECTS[window._currentProjIdx] : null;
+      if(_p2) _updateMenuItemColors(_p2);
+    }, 450);
+  }
 }
 
 function restoreMenuFromFly(animate) {
@@ -3860,7 +3857,7 @@ function showOutlookBtn(scroll, dz, filePath) {
   scroll.classList.remove('mail-text','mail-html');
   scroll.removeAttribute('style');
   scroll.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;';
-  scroll.innerHTML = '<div style="color:#808898;font-family:VT323,monospace;font-size:14px;letter-spacing:.1em;">— NO FILE LOADED —</div>';
+  scroll.innerHTML = '<div style="color:#808898;font-family:VT323,monospace;font-size:18px;letter-spacing:.1em;">— NO FILE LOADED —</div>';
   if(dz) {
     dz.style.display = '';
     dz.style.margin = '0';
@@ -4130,6 +4127,37 @@ function loadFfContent(tipo, p) {
   // 1. Già salvato in localStorage?
   if(FILES.has(key)) { showText(FILES.get(key)); return; }
 
+  // 2b. PURCHASING STATUS → stesso comportamento di Budget
+  if(tipo === 'browser') {
+    hideDelivPanel(); restoreDz();
+    scroll.classList.remove('mail-text','mail-html'); scroll.removeAttribute('style');
+    const _fi = document.getElementById('ff7-file-input');
+    if(_fi) _fi.accept = '.xlsx,.xls,.pdf,.csv,.mpp,.mpt,.docx';
+    const _hint = dz && dz.querySelector('div[style*="font-size:9px"]');
+    if(_hint) _hint.textContent = '.xlsx · .pdf · .mpp · .csv';
+    if(_restoreDroppedFiles('browser', scroll, dz)) {
+      if(_fi) _fi.onchange=function(){ if(_fi.files[0]) handleDroppedFile(_fi.files[0],scroll,dz); _fi.value=''; };
+      return;
+    }
+    showOutlookBtn(scroll, dz, getEffectiveBasePath() + getProjFolder(p) + '\\Purchasing Status');
+    const prvPs = document.createElement('div');
+    prvPs.style.cssText = 'display:none;margin:8px 4px;min-height:60px;background:rgba(0,0,40,.4);border:1px solid rgba(160,180,255,.1);border-radius:2px;align-items:center;justify-content:center;color:#304878;font-size:11px;font-family:VT323,monospace;';
+    prvPs.textContent = '— anteprima —';
+    scroll.appendChild(prvPs);
+    if(_fi) {
+      _fi.onchange = function() {
+        const file = _fi.files[0];
+        if(!file) return;
+        prvPs.style.display = 'flex';
+        if(file.name.toLowerCase().endsWith('.pdf')) {
+          prvPs.innerHTML = `<iframe src="${URL.createObjectURL(file)}" style="width:100%;height:280px;border:none;"></iframe>`;
+        } else { prvPs.textContent = file.name + ' — doppio click per aprire'; }
+        _fi.value = '';
+      };
+    }
+    return;
+  }
+
   // 2. DELIVERABLES → pannello interattivo (TM + TP affiancati se ha arr_tp)
   if(tipo === 'deliverables') {
     showDelivPanel();
@@ -4223,7 +4251,7 @@ function loadFfContent(tipo, p) {
     const attFolder  = getEffectiveBasePath() + projF + '\\' + SUB_ATT;
 
     let html = `<div style="font-family:VT323,monospace;padding:4px;">`;
-    html += `<div style="color:var(--yellow);font-size:13px;letter-spacing:.08em;margin-bottom:6px;">SAVED ITEMS</div>`;
+    html += `<div style="color:var(--yellow);font-size:18px;letter-spacing:.08em;margin-bottom:6px;">SAVED ITEMS</div>`;
     html += `<div style="color:#607090;font-size:10px;margin-bottom:4px;">Mail: ${mailFolder.replace(/</g,'&lt;')}</div>`;
     html += `<div style="color:#607090;font-size:10px;margin-bottom:12px;">Allegati: ${attFolder.replace(/</g,'&lt;')}</div>`;
 
@@ -4239,7 +4267,7 @@ function loadFfContent(tipo, p) {
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;gap:6px;">
                 <span style="color:#4a6a9a;font-size:10px;flex-shrink:0;">${it.date||''}</span>
-                <a href="#" class="item-mail-link" data-item-idx="${ii}" style="color:var(--yellow);font-size:13px;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:320px;" title="Apri in Outlook">✉ ${(it.subject||'—').replace(/</g,'&lt;')}</a>
+                <a href="#" class="item-mail-link" data-item-idx="${ii}" style="color:var(--yellow);font-size:18px;text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:320px;" title="Apri in Outlook">✉ ${(it.subject||'—').replace(/</g,'&lt;')}</a>
               </div>
               ${it.from ? `<div style="font-size:10px;color:#607090;margin-top:1px;">Da: ${it.from.replace(/</g,'&lt;').slice(0,60)}</div>` : ''}
               ${it.savedAs ? `<div style="font-size:9px;color:#4a6a9a;margin-top:2px;">📁 ${it.savedAs}</div>` : ''}

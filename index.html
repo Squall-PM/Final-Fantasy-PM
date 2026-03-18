@@ -1293,7 +1293,7 @@ function _updateMenuItemColors(p) {
     images:      () => (p.imagesFiles||[]).length > 0 || _hasDropped('images'),
     client:      () => _hasDropped('client'),
     finalnotes:  () => !!(p.finalNotes && p.finalNotes.trim()),
-    item:        () => (p.items||[]).length > 0 || _hasDropped('item'),
+    item:        () => (p.itemTable||[]).length > 0,
     browser:     () => _hasDropped('browser'),
     masterplan:  () => false,
     // Deliverables: almeno un orb completato (TM o TP)
@@ -3248,12 +3248,22 @@ function _renderFileList(files, key, scroll, dz) {
     }
   }
 
+  // Mappa tipo→chiave progetto
+  const _TIPO_TO_FKEY = {internal:'komFiles',client:'komFiles',timeschedule:'tsFiles',
+    budget:'budgetFiles',contract:'contractFiles',mdo:'mdoFiles',images:'imagesFiles'};
+  // Tipo e projIdx dalla key (formato "tipo_projIdx")
+  const _keyParts = key.split('_');
+  const _curTipo = _keyParts.slice(0,-1).join('_');
+  const _curProjIdx = parseInt(_keyParts[_keyParts.length-1])||0;
+
   function render() {
     let html = '<div style="font-family:VT323,monospace;padding:4px 6px;">';
     files.forEach((f, fi) => {
-      html += `<div class="df-row" data-fi="${fi}" style="display:flex;align-items:center;gap:6px;padding:4px 2px;border-bottom:1px solid rgba(160,180,255,.10);">
+      const isLast = fi === files.length - 1;
+      html += `<div class="df-row" data-fi="${fi}" style="display:flex;align-items:center;gap:6px;padding:4px 2px;${isLast?'':'border-bottom:1px solid rgba(160,180,255,.10);'}">
         <a href="#" class="df-name" data-fi="${fi}" style="color:var(--yellow);font-size:18px;text-decoration:none;cursor:pointer;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="Click: anteprima — Doppio click: scarica">📄 ${f.name.replace(/</g,'&lt;')}</a>
         <span class="df-rename" data-fi="${fi}" style="color:#607090;font-size:18px;cursor:pointer;padding:0 5px;" title="Rinomina">✎</span>
+        <span class="df-move" data-fi="${fi}" style="color:#4a7aaa;font-size:16px;cursor:pointer;padding:0 5px;" title="Sposta in altro sottomenu">↗</span>
         <span class="df-del" data-fi="${fi}" style="color:#604060;font-size:18px;cursor:pointer;padding:0 5px;" title="Elimina">✕</span>
       </div>`;
     });
@@ -3284,6 +3294,116 @@ function _renderFileList(files, key, scroll, dz) {
         if (!entry) return;
         const newName = prompt('Rinomina file:', entry.name);
         if (newName?.trim()) { entry.name = newName.trim(); render(); }
+      });
+    });
+
+    // ── Sposta file ──
+    scroll.querySelectorAll('.df-move').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const fi2 = parseInt(btn.dataset.fi);
+        const entry = files[fi2];
+        if (!entry) return;
+
+        // Popup inline con lista destinazioni
+        const existing = document.getElementById('df-move-popup');
+        if (existing) existing.remove();
+
+        const popup = document.createElement('div');
+        popup.id = 'df-move-popup';
+        popup.style.cssText = 'position:fixed;z-index:99999;background:linear-gradient(to bottom right,#0000b0,#000060,#000010);border:2px solid var(--border);box-shadow:inset 1px 1px 0 rgba(160,180,255,.5);font-family:VT323,monospace;padding:10px 14px;min-width:180px;';
+
+        // Posiziona vicino al bottone
+        const r = btn.getBoundingClientRect();
+        popup.style.left = Math.min(r.left, window.innerWidth - 200) + 'px';
+        popup.style.top  = (r.bottom + 4) + 'px';
+
+        // Sezioni disponibili (escludi quella corrente)
+        const MOVE_SECTIONS = {
+          internal:     'KOM Interno',
+          client:       'KOM Cliente',
+          timeschedule: 'Time Schedule',
+          budget:       'Budget',
+          contract:     'Contract',
+          mdo:          'MDO',
+          images:       'Images',
+        };
+
+        let html2 = '<div style="color:#a0b8ff;font-size:11px;letter-spacing:.06em;margin-bottom:6px;">SPOSTA IN:</div>';
+        Object.entries(MOVE_SECTIONS).forEach(([dest, label]) => {
+          if (dest === _curTipo) return;
+          html2 += `<div class="df-move-dest" data-dest="${dest}" style="color:#fff;font-size:14px;cursor:pointer;padding:3px 6px;transition:color .1s;" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='#fff'">${label}</div>`;
+        });
+        popup.innerHTML = html2;
+        document.body.appendChild(popup);
+
+        popup.querySelectorAll('.df-move-dest').forEach(opt => {
+          opt.addEventListener('click', destEv => {
+            destEv.stopPropagation();
+            const dest = opt.dataset.dest;
+            popup.remove();
+
+            // 1. Rimuovi da _droppedFiles sorgente
+            files.splice(fi2, 1);
+
+            // 2. Rimuovi dal progetto (array persistente sorgente)
+            const p = PROJECTS[_curProjIdx];
+            const srcFKey = _TIPO_TO_FKEY[_curTipo];
+            if (p && srcFKey && p[srcFKey]) {
+              const idx2 = p[srcFKey].findIndex(x => x.name === entry.name);
+              if (idx2 >= 0) p[srcFKey].splice(idx2, 1);
+            }
+
+            // 3. Aggiungi a _droppedFiles destinazione
+            if (!window._droppedFiles) window._droppedFiles = {};
+            const dkey2 = dest + '_' + _curProjIdx;
+            if (!window._droppedFiles[dkey2]) window._droppedFiles[dkey2] = [];
+            window._droppedFiles[dkey2].push(entry);
+
+            // 4. Aggiungi al progetto (array persistente destinazione)
+            const destFKey = _TIPO_TO_FKEY[dest];
+            if (p && destFKey) {
+              if (!p[destFKey]) p[destFKey] = [];
+              const sizeStr = entry.size || '';
+              p[destFKey].push({name:entry.name, date:entry.date||'', size:sizeStr, path:entry.path||''});
+            }
+
+            // 5. Sposta fisicamente su disco via Electron
+            if (entry.path && window.electronAPI && window.electronAPI.moveFiles) {
+              const destFolder = _getDestFolder(dest, PROJECTS[_curProjIdx]);
+              if (destFolder) {
+                const sep = destFolder.slice(-1)==='\\' ? '' : '\\\\';
+                const newPath = destFolder + sep + entry.name;                window.electronAPI.moveFiles({from: entry.path, to: newPath}).then(() => {
+                  entry.path = newPath;
+                  if(p && destFKey) { const rec = p[destFKey].find(x=>x.name===entry.name); if(rec) rec.path=newPath; }
+                  autoSave();
+                }).catch(()=>{});
+              }
+            }
+
+            autoSave();
+            _updateMenuItemColors(PROJECTS[_curProjIdx]);
+
+            // 6. Aggiorna vista
+            if (files.length === 0) {
+              delete window._droppedFiles[key];
+              scroll.innerHTML = '';
+              scroll.removeAttribute('style');
+              if (dz) { dz.style.display = ''; dz.style.margin = '0'; scroll.appendChild(dz); }
+            } else {
+              render();
+            }
+            sysLog('Spostato: ' + entry.name.slice(0,30) + ' → ' + MOVE_SECTIONS[dest], 'ok');
+          });
+        });
+
+        // Chiudi cliccando fuori
+        setTimeout(() => {
+          document.addEventListener('click', function closePopup() {
+            popup.remove();
+            document.removeEventListener('click', closePopup);
+          });
+        }, 50);
       });
     });
 
@@ -3325,6 +3445,7 @@ function _getDestFolder(tipo, p) {
     internal:     base + proj + '\\KOM interno',
     kom:          base + proj + '\\KOM interno',
     client:       base + proj + '\\KOM Customer',
+    kom_client:   base + proj + '\\KOM Customer',
     timeschedule: base + proj + '\\' + SUB_TS,
     budget:       base + proj + '\\Budget',
     contract:     base + proj + '\\Contract',
@@ -3337,13 +3458,18 @@ function _getDestFolder(tipo, p) {
 }
 
 // ── Helper: salva file su disco tramite Electron (se disponibile) ──
-async function _saveFileToDisk(file, destFolder) {
+async function _saveFileToDisk(file, destFolder, fileRecord) {
   if (!window.electronAPI || !window.electronAPI.saveFileToDisk) return;
   try {
     const buf = await file.arrayBuffer();
     const bytes = Array.from(new Uint8Array(buf));
-    await window.electronAPI.saveFileToDisk({ folder: destFolder, name: file.name, bytes });
-    sysLog('💾 Salvato: ' + file.name.slice(0,40) + ' → ' + destFolder.split('\\').pop(), 'ok');
+    const res = await window.electronAPI.saveFileToDisk({ folder: destFolder, name: file.name, bytes });
+    if (res && res.ok && res.path) {
+      // Aggiorna il path nel record in memoria così viene serializzato
+      if (fileRecord) fileRecord.path = res.path;
+      sysLog('💾 Salvato: ' + file.name.slice(0,40) + ' → ' + destFolder.split('\\').pop(), 'ok');
+      autoSave();
+    }
   } catch(e) {
     sysLog('Errore salvataggio: ' + (e.message||e), 'err');
   }
@@ -3377,10 +3503,23 @@ function handleDroppedFile(file, scroll, dz) {
   if (!window._droppedFiles[key]) window._droppedFiles[key] = [];
   window._droppedFiles[key].push({name: file.name, file, ext});
   const _p2 = (window._currentProjIdx != null) ? PROJECTS[window._currentProjIdx] : null;
-  // ── Salvataggio automatico su disco (solo in Electron) ──
-  const _destFolder = _getDestFolder(tipo, _p2);
-  if (_destFolder) _saveFileToDisk(file, _destFolder);
-  if (_p2) _updateMenuItemColors(_p2);
+
+  // ── Registra il file nello stato del progetto (persistente) ──
+  if (_p2) {
+    const fileKey = {internal:'komFiles', client:'komFiles', kom:'komFiles',
+                     contract:'contractFiles', budget:'budgetFiles', mdo:'mdoFiles',
+                     images:'imagesFiles', timeschedule:'tsFiles',
+                     browser:'purchasingFiles', item:'itemFiles'}[tipo] || (tipo + 'Files');
+    if (!_p2[fileKey]) _p2[fileKey] = [];
+    const sizeStr = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
+    const fileRecord = {name: file.name, date: todayStr(), size: sizeStr, path: ''};
+    _p2[fileKey].push(fileRecord);
+    // ── Salvataggio automatico su disco + aggiorna path nel record ──
+    const _destFolder = _getDestFolder(tipo, _p2);
+    if (_destFolder) _saveFileToDisk(file, _destFolder, fileRecord);
+    _updateMenuItemColors(_p2);
+    autoSave();
+  }
   _renderFileList(window._droppedFiles[key], key, scroll, dz);
 }
 function saveLog(el) {
@@ -4292,8 +4431,21 @@ function renderProjects(){
               function _firstPending(list) {
                 return list.find(x=>!x.is_note&&x.status!=='paid'&&x.status!=='pink')||null;
               }
+
+              const basePays = pays.filter(x=>x.mdo_idx==null);
+              const fp0 = _firstPending(basePays);
+
+              // Nessun MDO → layout classico, testo completo senza troncamento
+              if(mdo_list.length === 0) {
+                if(!fp0) return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0 2px;">${orbSVG('green',11)}<span class="np-text" style="margin:0;">—</span></div>`;
+                const fOrb = fp0.status==='red'?'red':fp0.status==='orange'?'orange':fp0.status==='blue'?'blue':'empty';
+                const fCol = fp0.status==='red'?'#ff453a':fp0.status==='orange'?'#ff9f0a':fp0.status==='blue'?'#4a9eff':fp0.status==='pending'?'#8e8e93':'#fff';
+                const txt = (fp0.text||'').replace(/</g,'&lt;').replace(/\t/g,'  ');
+                return `<div style="display:flex;align-items:flex-start;gap:6px;margin:4px 0 2px;">${orbSVG(fOrb,11)}<span class="np-text" style="margin:0;color:${fCol};">${txt}</span></div>`;
+              }
+
+              // Con MDO → layout a colonne con testo troncato
               function _col(fp, colLabel, colColor) {
-                // Colonnina singola: label in cima + orb + testo troncato
                 const lbl = `<div style="font-size:9px;color:${colColor||'#607090'};letter-spacing:.04em;margin-bottom:2px;white-space:nowrap;">${colLabel}</div>`;
                 if(!fp) return `<div style="flex:1;min-width:0;">${lbl}<div style="color:#304060;font-size:11px;">—</div></div>`;
                 const fOrb = fp.status==='red'?'red':fp.status==='orange'?'orange':fp.status==='blue'?'blue':'empty';
@@ -4303,18 +4455,11 @@ function renderProjects(){
                 return `<div style="flex:1;min-width:0;overflow:hidden;">${lbl}<div style="display:flex;align-items:flex-start;gap:3px;">${orbSVG(fOrb,9)}<span style="font-size:11px;color:${fCol};line-height:1.3;word-break:break-word;">${txt}</span></div></div>`;
               }
 
-              // Costruisci colonne: base + una per ogni MDO
-              const basePays = pays.filter(x=>x.mdo_idx==null);
-              const cols = [_col(_firstPending(basePays), 'PROGETTO', '#7ec8e3')];
+              const cols = [_col(fp0, 'PROGETTO', '#7ec8e3')];
               mdo_list.forEach((m,mi) => {
                 const mdoPays = pays.filter(x=>x.mdo_idx===mi&&!x.is_note);
                 cols.push(_col(_firstPending(mdoPays), 'MDO #'+(mi+1), _mdoColor(mi)));
               });
-
-              if(cols.length === 1 && !_firstPending(basePays)) {
-                return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0 2px;">${orbSVG('green',11)}<span class="np-text" style="margin:0;">—</span></div>`;
-              }
-              // Affianca le colonne con separatori verticali
               const sep = `<div style="width:1px;background:rgba(160,180,255,.15);align-self:stretch;margin:0 4px;flex-shrink:0;"></div>`;
               return `<div style="display:flex;align-items:flex-start;gap:0;width:100%;">${cols.join(sep)}</div>`;
             })()}
@@ -4449,11 +4594,12 @@ function renderProjects(){
     });
     // Auto-prepend today date on new line; allow ALL native shortcuts
     ta.addEventListener('keydown', e=>{
-      // Let native shortcuts pass through completely: Cmd/Ctrl + Z/Y/C/V/X/A and Backspace/Delete
+      // Blocca propagazione per TUTTI i tasti dentro il textarea (frecce, backspace, ecc.)
+      e.stopPropagation();
       const isShortcut = e.ctrlKey || e.metaKey;
-      if(isShortcut) return; // allow: undo, redo, copy, paste, cut, select-all
+      if(isShortcut) return;
       if(e.key==='Enter'){
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
         const v = ta.value;
         const prefix = '\n' + todayStr() + ' — ';
         const pos = ta.selectionStart;
@@ -4480,7 +4626,7 @@ function renderProjects(){
     }
     // (drop files handled by central drop zone)
 
-    logBox.addEventListener('click', e=>{ e.stopPropagation(); selectProject(i); });
+    logBox.addEventListener('click', e=>{ e.stopPropagation(); if(selectedIdx !== i) selectProject(i); });
 
     panel.appendChild(wrap);
   });
@@ -5264,11 +5410,9 @@ function saveState() {
     const data = PROJECTS.map(p => {
       const copy = Object.assign({}, p);
       // Non serializzare blob (non serializzabili), solo metadati file
-      if(copy.tsFiles) copy.tsFiles = copy.tsFiles.map(f => ({name:f.name,date:f.date,size:f.size,path:f.path}));
-      if(copy.budgetFiles) copy.budgetFiles = copy.budgetFiles.map(f => ({name:f.name,date:f.date,size:f.size,path:f.path}));
-      if(copy.contractFiles) copy.contractFiles = copy.contractFiles.map(f => ({name:f.name,date:f.date,size:f.size,path:f.path}));
-      if(copy.mdoFiles) copy.mdoFiles = copy.mdoFiles.map(f => ({name:f.name,date:f.date,size:f.size,path:f.path}));
-      if(copy.imagesFiles) copy.imagesFiles = copy.imagesFiles.map(f => ({name:f.name,date:f.date,size:f.size,path:f.path}));
+      const _sf = k => { if(copy[k]) copy[k] = copy[k].map(f => ({name:f.name,date:f.date,size:f.size,path:f.path})); };
+      _sf('tsFiles'); _sf('budgetFiles'); _sf('contractFiles'); _sf('mdoFiles');
+      _sf('imagesFiles'); _sf('komFiles');
       if(copy.items) copy.items = copy.items.map(it => {const c2=Object.assign({},it); delete c2.body; return c2;});
       return copy;
     });
@@ -5282,9 +5426,34 @@ function autoSave() { saveState(); }
 
 function _applyState(saved) {
   if(!Array.isArray(saved)) return;
-  // Aggiunge progetti nuovi se il file salvato ne ha di più
   while(PROJECTS.length < saved.length) PROJECTS.push({});
   saved.forEach((s, i) => { if(i < PROJECTS.length) Object.assign(PROJECTS[i], s); });
+  // Ripopola _droppedFiles dai file salvati su disco così i sottomenu mostrano la lista
+  if(!window._droppedFiles) window._droppedFiles = {};
+  const keyMap = {komFiles:'internal', tsFiles:'timeschedule', budgetFiles:'budget',
+                  contractFiles:'contract', mdoFiles:'mdo', imagesFiles:'images'};
+  PROJECTS.forEach((p, pi) => {
+    Object.entries(keyMap).forEach(([fKey, tipo]) => {
+      if(p[fKey] && p[fKey].length > 0) {
+        const dkey = tipo + '_' + pi;
+        // Ricostruisce voci senza blob (path disponibile, file=null)
+        window._droppedFiles[dkey] = p[fKey].map(f => ({
+          name: f.name, ext: (f.name.split('.').pop()||'').toLowerCase(),
+          file: null, path: f.path||''
+        }));
+      }
+    });
+    // komFiles mappa sia a internal che client — usa internal come default
+    if(p.komFiles && p.komFiles.length > 0) {
+      const dkey2 = 'client_' + pi;
+      if(!window._droppedFiles[dkey2]) {
+        window._droppedFiles[dkey2] = p.komFiles.map(f => ({
+          name: f.name, ext: (f.name.split('.').pop()||'').toLowerCase(),
+          file: null, path: f.path||''
+        }));
+      }
+    }
+  });
   renderProjects();
 }
 
@@ -5916,10 +6085,19 @@ function appendLogLine(projIdx, text) {
     spinner.style.display = '';
     dropText.textContent = 'analisi in corso...';
     try {
-      const text = await file.text();
+      const ext2 = (file.name.split('.').pop()||'').toLowerCase();
+      let text = '';
+      if(ext2 === 'msg') {
+        const buf = await file.arrayBuffer();
+        text = new TextDecoder('utf-8', {fatal:false}).decode(new Uint8Array(buf));
+      } else {
+        text = await file.text();
+      }
       await analyzeMailAndLog(text, selectedIdx);
+      autoSave();
+      renderProjects();
     } catch(err) {
-      sysLog('Errore lettura mail: ' + err.message, 'err');
+      sysLog('Errore lettura mail: ' + (err.message||err), 'err');
     }
     spinner.style.display = 'none';
     dropText.textContent = 'drop mail';
@@ -5959,7 +6137,8 @@ function _buildMemoryContext(fileName, fileExt) {
 }
 
 const SECTIONS_MAP = {
-  'kom':          'KOM',
+  'kom':          'KOM Interno',
+  'kom_client':   'KOM Cliente',
   'item':         'Item',
   'contract':     'Contract',
   'budget':       'Budget',
@@ -5968,8 +6147,8 @@ const SECTIONS_MAP = {
   'mdo':          'MDO',
 };
 const SECTIONS_KEYS = Object.keys(SECTIONS_MAP);
-const TIPO_LABEL = {kom:'KOM',internal:'KOM',log:'LOG',deliverables:'DELIVERABLES',client:'KOM',timeschedule:'TIME SCHEDULE',browser:'PURCHASING STATUS',masterplan:'MASTERPLAN',item:'ITEM',budget:'BUDGET',contract:'CONTRACT',mdo:'MDO',images:'IMAGES',finalnotes:'FINAL NOTES'};
-const SECTION_TO_TIPO = {kom:'internal',contract:'contract',budget:'budget',timeschedule:'timeschedule',mdo:'mdo',images:'images',browser:'browser',item:'item'};
+const TIPO_LABEL = {kom:'KOM',internal:'KOM',log:'LOG',deliverables:'DELIVERABLES',client:'KOM Cliente',timeschedule:'TIME SCHEDULE',browser:'PURCHASING STATUS',masterplan:'MASTERPLAN',item:'ITEM',budget:'BUDGET',contract:'CONTRACT',mdo:'MDO',images:'IMAGES',finalnotes:'FINAL NOTES'};
+const SECTION_TO_TIPO = {kom:'internal',kom_client:'client',contract:'contract',budget:'budget',timeschedule:'timeschedule',mdo:'mdo',images:'images',browser:'browser',item:'item'};
 
 function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isMail, wrongProject, suggestedProj) {
   // Remove existing popup
@@ -6053,14 +6232,63 @@ function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isM
       </select>
     </div>`;
 
+  // Proposta log: per mail usa logNote (verrà sovrascritta da AI dopo), per file il nome
+  const logProposal = logNote || (isMail ? '' : file.name.replace(/\.[^.]+$/,'').slice(0,60));
+
+  const logField = `
+    <div style="margin-bottom:14px;">
+      <label style="color:#a0b8ff;font-size:12px;display:block;margin-bottom:4px;letter-spacing:.06em;">RIGA LOG <span style="color:#607090;font-size:11px;">(lascia vuoto per non scrivere)</span></label>
+      <div style="display:flex;gap:6px;align-items:flex-start;">
+        <textarea id="routing-log-text" rows="2" spellcheck="false"
+          style="flex:1;background:#000820;border:1px solid #304878;color:#e0eaff;font-family:VT323,monospace;font-size:13px;padding:5px 8px;outline:none;resize:none;line-height:1.4;"
+          placeholder="Descrizione per il log...">${logProposal.replace(/</g,'&lt;')}</textarea>
+        ${isMail ? `<span id="routing-ai-log" title="Genera riassunto AI" style="color:#4a9aff;font-size:18px;cursor:pointer;padding:2px 4px;flex-shrink:0;line-height:1.6;" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='#4a9aff'">✦</span>` : ''}
+      </div>
+      <div id="routing-ai-status" style="color:#607090;font-size:11px;min-height:14px;margin-top:2px;"></div>
+    </div>`;
+
   const buttons = `
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <span id="routing-cancel" style="color:#ffffff;font-size:14px;cursor:pointer;padding:4px 12px;border:1px solid #607090;">Annulla</span>
       <span id="routing-ok" style="color:#ffffff;background:#20a830;font-size:14px;cursor:pointer;padding:4px 14px;letter-spacing:.06em;">Salva</span>
     </div>`;
 
-  popup.innerHTML = title + fname + proj + aiMsg + wrongProjMsg + select + projSelect + buttons;
+  popup.innerHTML = title + fname + proj + aiMsg + wrongProjMsg + select + projSelect + logField + buttons;
   document.body.appendChild(popup);
+
+  // Wire AI log button (solo per mail)
+  const aiLogBtn = document.getElementById('routing-ai-log');
+  if (aiLogBtn) {
+    aiLogBtn.addEventListener('click', async () => {
+      const statusEl = document.getElementById('routing-ai-status');
+      const taLog    = document.getElementById('routing-log-text');
+      if (!statusEl || !taLog) return;
+      statusEl.style.color = '#7ec8e3';
+      statusEl.textContent = '⟳ analisi mail...';
+      aiLogBtn.style.pointerEvents = 'none';
+      try {
+        const subjMatch = (mailText||'').match(/^Subject:\s*(.+)$/mi);
+        const fromMatch = (mailText||'').match(/^From:\s*(.+)$/mi);
+        const subject   = subjMatch ? subjMatch[1].trim() : '';
+        const from      = fromMatch ? fromMatch[1].trim() : '';
+        const prompt    = `Analizza questa email e scrivi UNA SOLA riga sintetica (max 10 parole in italiano) adatta come riga di log per un project manager.
+From: ${from.slice(0,60)}
+Subject: ${subject.slice(0,100)}
+Body: ${(mailText||'').slice(0,1500)}
+
+Rispondi SOLO con la riga, nessun altro testo.`;
+        const result = await _claudeAPI(prompt, 60);
+        taLog.value = result.trim().replace(/^["']|["']$/g,'').slice(0,80);
+        statusEl.style.color = '#30d158';
+        statusEl.textContent = '✓ proposta generata';
+        setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 2000);
+      } catch(err) {
+        statusEl.style.color = '#ff453a';
+        statusEl.textContent = 'Errore AI';
+      }
+      aiLogBtn.style.pointerEvents = '';
+    });
+  }
 
   // Wire buttons
   document.getElementById('routing-cancel').addEventListener('click', () => {
@@ -6069,9 +6297,10 @@ function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isM
   });
 
   document.getElementById('routing-ok').addEventListener('click', async () => {
-    const chosen = document.getElementById('routing-select').value;
+    const chosen      = document.getElementById('routing-select').value;
     const chosenProjIdx = parseInt(document.getElementById('routing-proj-select').value);
-    const targetP = PROJECTS[chosenProjIdx];
+    const targetP     = PROJECTS[chosenProjIdx];
+    const customLog   = (document.getElementById('routing-log-text')?.value||'').trim();
     popup.remove();
 
     // Save rich memory: filename keywords → section
@@ -6093,7 +6322,7 @@ function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isM
     const sizeStr = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
 
     // Salva in _droppedFiles con chiave tipo_projIdx (allineata ai sottomenu)
-    const _saveToDropped = (fname, fobj, chosenKey) => {
+    const _saveToDropped = (fname, fobj, chosenKey, fileRecord) => {
       const tipoKey = SECTION_TO_TIPO[chosenKey] || chosenKey;
       if(!window._droppedFiles) window._droppedFiles = {};
       const dkey = tipoKey + '_' + chosenProjIdx;
@@ -6103,27 +6332,35 @@ function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isM
       // ── Salvataggio automatico su disco (solo in Electron) ──
       const _destP = PROJECTS[chosenProjIdx];
       const _destFolder = _getDestFolder(tipoKey, _destP);
-      if (_destFolder && fobj) _saveFileToDisk(fobj, _destFolder);
+      if (_destFolder && fobj) _saveFileToDisk(fobj, _destFolder, fileRecord);
       return tipoKey;
     };
 
     let savedTipo = null;
     if(isMail && chosen === 'item') {
-      if(mailText) await analyzeMailAndLog(mailText, chosenProjIdx);
-    } else if(isMail && chosen !== 'item') {
-      if(mailText) await analyzeMailAndLog(mailText, chosenProjIdx);
-      const sectionKey = chosen + 'Files';
-      if(!targetP[sectionKey]) targetP[sectionKey] = [];
-      const emlName = todayStr().replace(/\//g,'-') + '_' + file.name;
-      targetP[sectionKey].push({name:emlName, date:todayStr(), size:sizeStr, blob:file});
-      savedTipo = _saveToDropped(emlName, file, chosen);
+      // Mail → solo analisi e log
+      if(mailText) await analyzeMailAndLog(mailText, chosenProjIdx, true, customLog);  // item: salva in p.items
+      if(customLog) appendLogLine(chosenProjIdx, customLog);
+    } else if(isMail) {
+      // Mail → analisi log + salva file nella sezione scelta
+      if(mailText) await analyzeMailAndLog(mailText, chosenProjIdx, false, customLog); // non-item: solo log
+      const tipoKey = SECTION_TO_TIPO[chosen] || chosen;  // es. 'kom_client' → 'client', 'kom' → 'internal'
+      const fileKey = {internal:'komFiles', client:'komFiles', kom:'komFiles', kom_client:'komFiles',
+                       contract:'contractFiles', budget:'budgetFiles', mdo:'mdoFiles',
+                       images:'imagesFiles', timeschedule:'tsFiles'}[tipoKey] || (tipoKey + 'Files');
+      if(!targetP[fileKey]) targetP[fileKey] = [];
+      const emlName = file.name;
+      const mailRecord = {name:emlName, date:todayStr(), size:sizeStr, path:''};
+      targetP[fileKey].push(mailRecord);
+      savedTipo = _saveToDropped(emlName, file, chosen, mailRecord);
       sysLog('Mail salvata in ' + SECTIONS_MAP[chosen] + ' (' + targetP.cod + '): ' + emlName.slice(0,30), 'ok');
     } else {
       const sectionKey = chosen + 'Files';
       if(!targetP[sectionKey]) targetP[sectionKey] = [];
-      targetP[sectionKey].push({name:file.name, date:todayStr(), size:sizeStr, blob:file});
-      savedTipo = _saveToDropped(file.name, file, chosen);
-      appendLogLine(chosenProjIdx, (logNote||file.name).slice(0,60) + ' → ' + SECTIONS_MAP[chosen] + (chosenProjIdx!==projIdx?' ('+targetP.cod+')':''));
+      const fileRec = {name:file.name, date:todayStr(), size:sizeStr, path:''};
+      targetP[sectionKey].push(fileRec);
+      savedTipo = _saveToDropped(file.name, file, chosen, fileRec);
+      if(customLog) appendLogLine(chosenProjIdx, customLog + (chosenProjIdx!==projIdx?' ('+targetP.cod+')':''));
       sysLog('Salvato in ' + SECTIONS_MAP[chosen] + ' (' + targetP.cod + '): ' + file.name.slice(0,30), 'ok');
     }
 
@@ -6134,10 +6371,138 @@ function showRoutingPopup(file, mailText, projIdx, proposedSection, logNote, isM
     if(savedTipo && savedTipo !== 'item' && chosenProjIdx === (window._currentProjIdx ?? null) && window._currentFfTipo === savedTipo) {
       loadFfContent(savedTipo, targetP);
     }
+
+    // Allegati mail: mostra popup se ci sono allegati rilevati
+    if(isMail && mailText) {
+      const atts = _extractAttachmentNames(mailText);
+      if(atts.length > 0) {
+        const mailSect = SECTION_TO_TIPO[chosen] || chosen;
+        showAttachmentsPopup(atts, chosenProjIdx, mailSect);
+      }
+    }
   });
 }
 
-async function analyzeMailAndLog(mailText, projIdx) {
+// ── Popup allegati mail ──────────────────────────────────────────
+function _extractAttachmentNames(mailText) {
+  if (!mailText) return [];
+  const found = new Set();
+  // Pattern MIME standard: filename="...", filename*=utf-8''..., name="..."
+  const rxFilename = new RegExp('filename[*]?=(?:utf-8\'\'|"?)([^";\\r\\n]+)', 'gi');
+  const rxName = /\bname="([^"]+)"/gi;
+  const patterns = [rxFilename, rxName];
+  patterns.forEach(rx => {
+    let m;
+    while ((m = rx.exec(mailText)) !== null) {
+      const name = decodeURIComponent(m[1].replace(/^"|"$/g,'').trim());
+      if (name && name.length > 1 && name.includes('.') && name.indexOf('\n') < 0) found.add(name);
+    }
+  });
+  return [...found];
+}
+
+function showAttachmentsPopup(attachments, chosenProjIdx, mailSection) {
+  if (!attachments || attachments.length === 0) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'att-popup';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:999998;display:flex;align-items:center;justify-content:center;';
+
+  const SECT = {
+    internal:'KOM Interno', client:'KOM Cliente', timeschedule:'Time Schedule',
+    budget:'Budget', contract:'Contract', mdo:'MDO', images:'Images', item:'Item'
+  };
+
+  // Suggerisci sezione in base all'estensione
+  function _suggestSection(name) {
+    const ext = (name.split('.').pop()||'').toLowerCase();
+    if (['jpg','jpeg','png','gif','webp','bmp','tif','tiff'].includes(ext)) return 'images';
+    if (['xlsx','xls','csv'].includes(ext)) return 'budget';
+    if (['pdf','docx','doc'].includes(ext) && /contract|contratt|order|ordine|po/i.test(name)) return 'contract';
+    if (['mpp','mpx','gan'].includes(ext)) return 'timeschedule';
+    if (['pdf','docx','doc','msg','eml'].includes(ext)) return mailSection || 'internal';
+    return 'internal';
+  }
+
+  let rows = '';
+  attachments.forEach((name, i) => {
+    const suggested = _suggestSection(name);
+    const opts = Object.entries(SECT).map(([k,v]) =>
+      `<option value="${k}" ${k===suggested?'selected':''}>${v}</option>`
+    ).join('');
+    rows += `<tr style="border-bottom:1px solid rgba(160,180,255,.08);">
+      <td style="padding:5px 8px;color:#c8d8ff;font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${name.replace(/"/g,'&quot;')}">📎 ${name.replace(/</g,'&lt;')}</td>
+      <td style="padding:5px 8px;">
+        <select class="att-sect" data-i="${i}" style="background:#000820;border:1px solid #304878;color:#fff;font-family:VT323,monospace;font-size:12px;padding:2px 4px;outline:none;width:130px;">
+          ${opts}
+        </select>
+      </td>
+      <td style="padding:5px 8px;text-align:center;">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:#607090;font-size:12px;">
+          <input type="checkbox" class="att-skip" data-i="${i}" style="cursor:pointer;"> ignora
+        </label>
+      </td>
+    </tr>`;
+  });
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:linear-gradient(to bottom right,#0000b0,#000060,#000010);border:2px solid var(--border);box-shadow:inset 1px 1px 0 rgba(160,180,255,.5);padding:22px 26px;min-width:420px;max-width:580px;width:94vw;font-family:VT323,monospace;max-height:80vh;overflow-y:auto;';
+  box.innerHTML = `
+    <div style="color:var(--yellow);font-size:15px;letter-spacing:.1em;margin-bottom:6px;text-align:center;">📎 ALLEGATI TROVATI</div>
+    <div style="color:#607090;font-size:11px;text-align:center;margin-bottom:14px;">Scegli dove registrare ogni allegato (non vengono estratti fisicamente)</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <thead><tr style="border-bottom:1px solid rgba(160,180,255,.2);">
+        <th style="color:#607090;font-size:11px;font-weight:normal;text-align:left;padding:4px 8px;">FILE</th>
+        <th style="color:#607090;font-size:11px;font-weight:normal;text-align:left;padding:4px 8px;">SEZIONE</th>
+        <th style="color:#607090;font-size:11px;font-weight:normal;padding:4px 8px;"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <span id="att-skip-all" style="color:#607090;font-size:13px;cursor:pointer;padding:4px 10px;border:1px solid #304060;">Ignora tutti</span>
+      <span id="att-ok" style="color:#fff;background:#20a830;font-size:14px;cursor:pointer;padding:4px 14px;">Registra</span>
+    </div>`;
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+
+  box.querySelector('#att-skip-all').addEventListener('click', () => {
+    box.querySelectorAll('.att-skip').forEach(cb => cb.checked = true);
+  });
+
+  box.querySelector('#att-ok').addEventListener('click', () => {
+    overlay.remove();
+    const p = PROJECTS[chosenProjIdx];
+    if (!p) return;
+
+    const fileKeyMap = {internal:'komFiles',client:'komFiles',timeschedule:'tsFiles',
+      budget:'budgetFiles',contract:'contractFiles',mdo:'mdoFiles',images:'imagesFiles',item:'komFiles'};
+
+    attachments.forEach((name, i) => {
+      const skip = box.querySelector(`.att-skip[data-i="${i}"]`)?.checked;
+      if (skip) return;
+      const sect = box.querySelector(`.att-sect[data-i="${i}"]`)?.value || 'internal';
+      const fKey = fileKeyMap[sect] || 'komFiles';
+      if (!p[fKey]) p[fKey] = [];
+      p[fKey].push({name, date:todayStr(), size:'—', path:'', is_attachment:true});
+
+      // Aggiunge a _droppedFiles per mostrarlo nel sottomenu
+      if (!window._droppedFiles) window._droppedFiles = {};
+      const dkey = sect + '_' + chosenProjIdx;
+      if (!window._droppedFiles[dkey]) window._droppedFiles[dkey] = [];
+      window._droppedFiles[dkey].push({name, file:null, ext:(name.split('.').pop()||'').toLowerCase(), path:'', is_attachment:true});
+
+      sysLog('Allegato registrato: ' + name.slice(0,30) + ' → ' + SECT[sect], 'ok');
+    });
+    autoSave();
+    _updateMenuItemColors(p);
+    renderProjects();
+  });
+}
+
+
+async function analyzeMailAndLog(mailText, projIdx, saveAsItem=true, overrideLog=null) {
   const p = PROJECTS[projIdx];
   const projName = (p.name1+' '+p.name2).trim();
 
@@ -6171,12 +6536,14 @@ Rispondi SOLO con il JSON, niente altro.`;
       logLine = raw.replace(/^["']|["']$/g,'').slice(0,60);
       summary = logLine;
     }
-    if (logLine) {
-      appendLogLine(projIdx, logLine);
-      sysLog('Log aggiornato: ' + logLine, 'ok');
+    const finalLog = overrideLog !== null ? overrideLog : logLine;
+    if (finalLog) {
+      appendLogLine(projIdx, finalLog);
+      sysLog('Log aggiornato: ' + finalLog, 'ok');
     }
-    // Salva mail come item nel progetto
-    if(!p.items) p.items = [];
+    // Salva mail come item nel progetto (solo se richiesto)
+    if(saveAsItem && !p.items) p.items = [];
+    if(saveAsItem) {
     const projF = getProjFolder(p);
     const mailFolder = getEffectiveBasePath() + projF + '\\' + SUB_MAIL;
     const safeSubj = (mailSubject||'mail').replace(/[^a-zA-Z0-9 _.-]/g,'_').slice(0,60);
@@ -6191,12 +6558,12 @@ Rispondi SOLO con il JSON, niente altro.`;
       savedAs: emlName,
       folder: mailFolder
     });
-    // Scarica la mail come .eml nella cartella Mail del progetto
-    saveFileBlob(new Blob([mailText], {type:'message/rfc822'}), emlName);
     sysLog('Item salvato: ' + mailSubject.slice(0,40), 'ok');
+    } // end if(saveAsItem)
   } catch(err) {
     sysLog('Errore AI: ' + err.message, 'err');
-    // Salva comunque la mail come item anche senza AI
+    // Salva come item solo se richiesto
+    if(!saveAsItem) return;
     if(!p.items) p.items = [];
     const projF2 = getProjFolder(p);
     const mailFolder2 = getEffectiveBasePath() + projF2 + '\\' + SUB_MAIL;
@@ -6212,7 +6579,7 @@ Rispondi SOLO con il JSON, niente altro.`;
       savedAs: emlName2,
       folder: mailFolder2
     });
-    saveFileBlob(new Blob([mailText], {type:'message/rfc822'}), emlName2);
+    // file già salvato su disco via Electron
   }
 }
 
@@ -6417,7 +6784,7 @@ function openSettings() {
       <div style="color:#a0b8ff;font-size:12px;letter-spacing:.08em;margin-bottom:8px;">SPOSTAMENTO FILE ESISTENTI</div>
       <div style="color:#607090;font-size:10px;margin-bottom:10px;">Se cambi cartella, i metadati vengono aggiornati. I file fisici devono essere spostati manualmente o tramite Electron.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <span id="settings-move-btn" style="color:#000;background:var(--yellow);font-size:13px;cursor:pointer;padding:5px 14px;letter-spacing:.06em;">Aggiorna percorsi</span>
+        <span id="settings-move-btn" style="color:#fff;background:#20a830;font-size:13px;cursor:pointer;padding:5px 14px;letter-spacing:.06em;">Aggiorna percorsi</span>
         <span id="settings-export-btn" style="color:#c0d0ff;font-size:13px;cursor:pointer;border:1px solid #304878;padding:5px 12px;letter-spacing:.06em;">Esporta lista file</span>
       </div>
       <div id="settings-move-status" style="color:#30d158;font-size:10px;margin-top:6px;min-height:14px;"></div>
@@ -6886,11 +7253,50 @@ async function handleCentralDrop(file) {
   const dz     = document.getElementById('central-drop-zone');
   const _resetDz = () => { if(dz){ dz.textContent='◆ DROP FILE'; dz.style.color='#4060a0'; } };
 
-  // Mail → analisi diretta senza popup
+  // Mail → leggi testo, poi mostra popup routing (KOM Interno / KOM Cliente / Item)
   if(isMail) {
     if(dz){ dz.textContent='⟳ analisi...'; dz.style.color='#7ec8e3'; }
-    try { await analyzeMailAndLog(await file.text(), projIdx); } catch(_){}
-    _resetDz(); return;
+    let mailText = '';
+    try {
+      if(ext === 'msg') {
+        const buf = await file.arrayBuffer();
+        mailText = new TextDecoder('utf-8', {fatal:false}).decode(new Uint8Array(buf));
+      } else {
+        mailText = await file.text();
+      }
+    } catch(err) {
+      sysLog('Errore lettura mail: ' + (err.message||err), 'err');
+    }
+
+    // AI suggerisce sezione
+    let section = 'kom', note = '';
+    try {
+      const p = PROJECTS[projIdx];
+      const subjMatch = mailText.match(/^Subject:\s*(.+)$/mi);
+      const fromMatch = mailText.match(/^From:\s*(.+)$/mi);
+      const subject = subjMatch ? subjMatch[1].trim() : '';
+      const from    = fromMatch ? fromMatch[1].trim() : '';
+      const prompt = `Sei un assistente per la gestione progetti. Una mail è stata droppata.
+Progetto: ${p.cod} — ${(p.name1+' '+p.name2).trim()}
+From: ${from.slice(0,80)}
+Subject: ${subject.slice(0,100)}
+
+Sezioni disponibili:
+- kom: KOM interno, kickoff, verbali interni, meeting con colleghi
+- kom_client: KOM cliente, email dal/al cliente, documenti cliente
+- item: corrispondenza generica, altro
+
+Rispondi SOLO con un JSON: {"section":"<chiave>","note":"<breve motivo max 40 char>","confident":true/false}`;
+      const txt = await _claudeAPI(prompt, 120);
+      const parsed = JSON.parse(txt.replace(/\`\`\`json|\`\`\`/g,'').trim());
+      section = parsed.section || 'kom';
+      note    = parsed.note || '';
+      if(!parsed.confident) section = 'unknown';
+    } catch(_) { section = 'unknown'; note = ''; }
+
+    _resetDz();
+    showRoutingPopup(file, mailText, projIdx, section, note, true, false, null);
+    return;
   }
 
   // File generico: AI routing con fallback manuale
@@ -6909,7 +7315,8 @@ Progetto attivo: ${p.cod} — ${(p.name1+' '+p.name2).trim()}
 Altri progetti: ${allProjs}
 
 Sezioni disponibili:
-- kom: KOM interno, kickoff, verbali meeting
+- kom: KOM interno, kickoff, verbali meeting interni
+- kom_client: KOM cliente, email cliente, documenti inviati al cliente
 - contract: contratti, ordini, PO
 - budget: budget, preventivi, offerte, .xlsx .csv
 - timeschedule: gantt, .mpp, cronoprogramma
